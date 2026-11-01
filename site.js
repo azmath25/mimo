@@ -5,6 +5,7 @@
     ["index.html","Overview","overview"],
     ["workflows.html","Workflows","workflows"],
     ["studio.html","Studio","studio"],
+    ["tikz.html","TikZ Lab","tikz"],
     ["models.html","AI models","models"],
     ["access.html","API access","access"],
     ["budgets.html","Budgets & usage","budgets"]

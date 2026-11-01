@@ -70,7 +70,28 @@ async function uploadArtifact(file) {
   form.append("file", file, file.name);
   return request("/v1/artifacts", {method: "POST", body: form});
 }
-const cloud = { apiOrigin: API_ORIGIN, authorized: false, user: null, request, uploadArtifact };
+async function requestBlob(path, options = {}) {
+  if (!auth.currentUser) throw Error("Sign in to Mimo first.");
+  if (!path.startsWith("/v1/")) throw Error("Invalid authenticated download path.");
+  const headers = new Headers(options.headers || {});
+  headers.set("Authorization", "Bearer " + await auth.currentUser.getIdToken());
+  if (options.body !== undefined) headers.set("Content-Type", "application/json");
+  let response;
+  try {
+    response = await fetch(API_ORIGIN + path, {
+      method: options.method || "GET", headers,
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      cache:"no-store"
+    });
+  }catch{throw Error("Cannot connect to Mimo API.");}
+  if (!response.ok) {
+    let detail = await response.text();
+    try { detail = JSON.parse(detail).detail || detail; }catch{}
+    throw Error("HTTP " + response.status + ": " + String(detail).slice(0,1800));
+  }
+  return response.blob();
+}
+const cloud = { apiOrigin: API_ORIGIN, authorized: false, user: null, request, requestBlob, uploadArtifact };
 window.MimoCloud = cloud;
 
 login.addEventListener("submit", async event => {
