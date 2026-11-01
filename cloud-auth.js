@@ -99,10 +99,14 @@ onAuthStateChanged(auth, async user => {
   cloud.authorized = false;
   cloud.user = null;
   account.hidden = true;
-  gate.hidden = false;
+  // Do not show the sign-in dialog during Firebase's session restoration.
+  // A new document is loaded on each page navigation and the persisted
+  // Firebase user is verified asynchronously against the backend.
   status("Checking account…");
   window.dispatchEvent(new Event("mimo:auth-changed"));
   if (!user) {
+    gate.hidden = false;
+    switchAccount.hidden = true;
     announce("Sign in with the Firebase account whose UID you added to MIMO_ADMIN_UIDS.");
     status("Sign in required");
     return;
@@ -119,9 +123,15 @@ onAuthStateChanged(auth, async user => {
     status("Cloud connected", true);
     window.dispatchEvent(new Event("mimo:auth-changed"));
   } catch(error) {
+    gate.hidden = false;
     status("Access not granted");
     announce("Signed in to Firebase, but backend access failed: " + error.message +
       ". Verify MIMO_ADMIN_UIDS and the frontend origin in MIMO_CORS_ORIGINS.", true);
     switchAccount.hidden = false;
   }
-}, error => {status("Authentication error");announce(error.message, true);});
+}, error => {
+  gate.hidden = false;
+  account.hidden = true;
+  status("Authentication error");
+  announce(error.message, true);
+});
