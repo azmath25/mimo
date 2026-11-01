@@ -501,6 +501,108 @@ function selectedToTemplate(){const n=node(state.selected);if(!n||['input','outp
 function downloadJSON(data,filename){const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename.replace(/[^a-zA-Z0-9._-]/g,'_');document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1200)}
 function blockJSON(t){return {kind:'mimo/block',version:4,block:{...t}}}
 function workflowJSON(){const withCustom={};state.nodes.forEach(n=>{if(state.custom[n.type])withCustom[n.type]=state.custom[n.type]});return {kind:'mimo/workflow',version:4,name:$('#workflowTitle').value||'My workflow',nodes:state.nodes.map(n=>({...n,accept:[...n.accept]})),edges:state.edges.map(e=>({...e})),customBlocks:withCustom,initialInput:{format:state.initial.format,text:state.initial.text,fileName:state.initialFile?'':state.initial.fileName},workflowGoal:state.workflowGoal,note:'Binary files are not embedded. Re-select local files after importing.'}}
+function draftSignature(){return JSON.stringify(workflowJSON())}
+function draftStorageKey(){
+  const uid=window.MimoCloud?.authorized&&window.MimoCloud?.user?.uid;
+  return uid?'mimo.recovery.v1.'+uid:null;
+}
+function draftHasEdits(){return lastSavedSignature===null||draftSignature()!==lastSavedSignature}
+function updateDraftStatus(){
+  const el=$('#draftStatus');if(!el)return;
+  el.classList.remove('dirty','saved');
+  if(draftHasEdits()){
+    el.classList.add('dirty');el.textContent='● Unsaved edits';
+    el.title='Changes have not been saved to Neon. Local recovery is available while signed in.';
+  }else if(savedLocation==='cloud'){
+    el.classList.add('saved');el.textContent='✓ Saved to Neon';
+    el.title='Last saved workflow matches your current canvas.';
+  }else if(savedLocation==='local'){
+    el.classList.add('saved');el.textContent='✓ Saved locally';
+    el.title='Saved in this browser, not to Neon.';
+  }else{
+    el.textContent='Example · not saved';
+    el.title='Demo workflow. Save to keep your changes.';
+  }
+}
+function saveDraftLocally(clean=false){
+  const key=draftStorageKey();if(!key)return;
+  storage(key,{kind:'mimo/recovery',version:1,uid:window.MimoCloud.user.uid,clean,
+    updated:new Date().toISOString(),flow:workflowJSON(),
+    flowId:state.flowId,cloud:state.currentCloud});
+}
+function scheduleDraftRecovery(){
+  clearTimeout(recoveryTimer);
+  recoveryTimer=setTimeout(()=>{
+    updateDraftStatus();
+    if(draftHasEdits())saveDraftLocally(false);
+  },800);
+}
+function markSaved(location,signature=draftSignature()){
+  lastSavedSignature=signature;savedLocation=location;updateDraftStatus();
+  saveDraftLocally(location==='cloud'&&!draftHasEdits());
+  $('#draftRecovery').hidden=true;
+}
+function confirmDiscardEdits(){
+  if(!draftHasEdits())return true;
+  return confirm('This canvas has edits not yet saved to Neon. Continue and replace it? Choose Cancel to save or export first.');
+}
+function showDraftRecovery(){
+  const key=draftStorageKey(),banner=$('#draftRecovery');
+  banner.hidden=true;pendingRecovery=null;
+  if(!key)return;
+  const draft=storage(key);
+  if(!draft||draft.clean||draft.uid!==window.MimoCloud.user.uid||
+     draft.kind!=='mimo/recovery'||!draft.flow||!Array.isArray(draft.flow.nodes))return;
+  if(JSON.stringify(draft.flow)===draftSignature())return;
+  pendingRecovery=draft;banner.hidden=false;
+}
+function renderCloudReadiness(){
+  const issues=window.MimoBridge.runIssues(workflowJSON(),cloudModels);
+  for(const n of state.nodes.filter(x=>x.type!=='input'&&inputRule(x).invalid)){
+    issues.push('Input rule needs attention in block: '+n.name);
+  }
+  if(!getLayers())issues.push('The workflow graph contains a cycle.');
+  if(state.initialFile||(state.initial.fileName&&!state.initial.text)){
+    issues.push('Binary input uploads are not yet supported in cloud execution. Use text input.');
+  }
+  if(!window.MimoCloud?.authorized)issues.unshift('Sign in as your Firebase administrator first.');
+  const list=[...new Set(issues)];
+  $('#cloudCheckResults').innerHTML=list.length?
+    list.map(x=>`<div class="cloud-check-row cloud-check-error"><span>⚠</span><p>${safe(x)}</p></div>`).join(''):
+    '<div class="cloud-check-row cloud-check-pass"><span>✓</span><p><b>Ready to execute.</b> No unsupported blocks or graph issues found. Live provider availability is checked during execution.</p></div>';
+  $('#checkRunCloud').disabled=list.length>0;
+  return list;
+}
+$('#restoreDraftBtn').addEventListener('click',()=>{
+  const r=pendingRecovery;if(!r||!window.MimoCloud?.authorized)return;
+  if(!confirmDiscardEdits())return;
+  const id=r.flowId||null;const cloud=r.cloud===true;
+  applyWorkflow(r.flow,id);state.currentCloud=cloud;
+  lastSavedSignature=null;savedLocation='recovered';updateDraftStatus();
+  pendingRecovery=null;$('#draftRecovery').hidden=true;
+  toast('Recovery draft restored. Select Save to sync it to Neon.');
+});
+$('#discardDraftBtn').addEventListener('click',()=>{
+  const key=draftStorageKey();if(key)localStorage.removeItem(key);
+  pendingRecovery=null;$('#draftRecovery').hidden=true;
+});
+document.addEventListener('input',scheduleDraftRecovery);
+document.addEventListener('change',scheduleDraftRecovery);
+document.addEventListener('click',scheduleDraftRecovery);
+window.addEventListener('pointerup',scheduleDraftRecovery);
+window.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){
+    e.preventDefault();saveWorkflow();
+  }
+});
+window.addEventListener('beforeunload',e=>{
+  if(!window.MimoCloud?.authorized)return;
+  clearTimeout(recoveryTimer);
+  if(!draftHasEdits())return;
+  saveDraftLocally(false);
+  e.preventDefault();
+  e.returnValue='';
+});
 function newWorkflow(){if(state.running||!confirmDiscardEdits())return;closeDialog('flowsDialog');state.nodes=[];state.edges=[];state.seq=0;state.selected=null;state.selectedEdge=null;state.flowId=null;state.currentCloud=false;state.workflowGoal='';state.initialFile=null;state.initial={format:'text',text:'',fileName:''};state.results={};state.runStatus={};state.lastRun=null;$('#workflowTitle').value='Untitled workflow';const a=makeNode('input',60,220,{name:'Workflow input'}),b=makeNode('output',620,220,{name:'My outputs'});state.nodes.push(a,b);setView('workflow');renderAll();requestAnimationFrame(()=>{fitView();selectNode(a.id)});toast('A fresh workflow is ready ✳');lastSavedSignature=null;savedLocation='new';updateDraftStatus()}
 function quickStartWorkflow(){
   if(state.running||!confirmDiscardEdits())return;
@@ -544,20 +646,20 @@ window.addEventListener('mimo:auth-changed',()=>{
 });
 async function saveWorkflow(){
   if(state.running)return;
-  const flow=workflowJSON(),id=state.flowId||unique(),i=state.savedFlows.findIndex(x=>x.id===id);
+  const flow=workflowJSON(),savedSignature=JSON.stringify(flow),id=state.flowId||unique(),i=state.savedFlows.findIndex(x=>x.id===id);
   const existing=i>=0?state.savedFlows[i]:null;
   const row={id,name:flow.name,updated:new Date().toISOString(),data:flow,cloud:existing?.cloud===true||state.currentCloud===true};
   if(i>=0)state.savedFlows[i]=row;else state.savedFlows.unshift(row);
   state.flowId=id;
   const localOk=storage(workflowKey,state.savedFlows);
   renderFlowList();
-  if(!window.MimoCloud?.authorized){markSaved('local');toast(localOk?'Saved locally; sign in to sync with Neon.':'Browser storage unavailable; download JSON for backup.');return}
+  if(!window.MimoCloud?.authorized){markSaved('local',savedSignature);toast(localOk?'Saved locally; sign in to sync with Neon.':'Browser storage unavailable; download JSON for backup.');return}
   try {
     const payload=window.MimoBridge.toBackend(flow,id,cloudModels);
     await window.MimoCloud.request(row.cloud?'/v1/workflows/'+encodeURIComponent(id):'/v1/workflows',
       {method:row.cloud?'PATCH':'POST',body:payload});
     row.cloud=true;state.currentCloud=true;
-    storage(workflowKey,state.savedFlows);markSaved('cloud');
+    storage(workflowKey,state.savedFlows);markSaved('cloud',savedSignature);
     toast('Workflow saved to Neon ♡');
     await refreshCloudList();
   } catch(e) {
@@ -726,6 +828,7 @@ const collect=makeNode('output',1414,260,{name:'Collect results',summary:'Store 
 state.nodes.push(input,decision,extract,compiler,repair,collect);
 state.edges.push({from:input.id,to:decision.id},{from:decision.id,to:extract.id,branchId:'r1'},{from:extract.id,to:compiler.id},{from:decision.id,to:repair.id,branchId:'r2'},{from:compiler.id,to:collect.id},{from:repair.id,to:collect.id});
 renderAll();requestAnimationFrame(()=>{fitView();selectNode(input.id);$('#inspector').classList.remove('open')});window.addEventListener('resize',()=>applyView());
+lastSavedSignature=draftSignature();savedLocation='example';updateDraftStatus();
 })();
 
 </script>
