@@ -145,7 +145,7 @@
  function clone(m){
    clear();
    const suffix="_copy";
-   const base=(m.id+suffix).slice(0,64-suffix.length);
+   const base=m.id.slice(0,64-suffix.length);
    let candidate=(base+suffix).slice(0,64),count=2;
    while(models.some(other=>other.id===candidate)){
      candidate=(base.slice(0,62-String(count).length)+"_"+count++).slice(0,64);
