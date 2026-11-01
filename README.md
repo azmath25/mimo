@@ -57,6 +57,14 @@ Setup requires manual actions in your own accounts:
 
 Only your **server-side** Firebase Function or other backend may hold the one-time project API key. Never embed it in GitHub Pages HTML/JavaScript. Keep `background=false` while the Cloud Tasks worker is disabled. One execution Cloud Run service handles all published workflow IDs.
 
+## New: in-app provider keys and TikZ Lab
+
+The AI Models page now contains a secure key-management form for adding and rotating provider API keys through the backend's Google Secret Manager keyring. Keys are not returned to the browser or stored in Neon. The keyring resource and IAM permissions must be provisioned once on Google Cloud.
+
+The new [TikZ Lab](tikz.html) compiles real standalone LaTeX documents through an isolated private TeX Live service. It supports PDF documents and PNG diagrams, downloadable after compilation. Studio compiler nodes can execute and download compiled artifacts once the service is configured. Until that point, the capability check prevents simulated success.
+
+Backend setup: see the private backend repository's docs/PROVIDER_KEYS_AND_TIKZ.md. GitHub Pages and the backend are **not automatically deployed** merely by pushing this branch.
+
 ## Features and limits
 
 - **Save:** writes a browser backup first, then a cloud draft to Neon. A failure is shown explicitly, never disguised as success.
@@ -72,7 +80,7 @@ Only your **server-side** Firebase Function or other backend may hold the one-ti
 - **Spending:** `budgets.html` displays lifetime usage and configures pre-call hard limits and informational soft thresholds.
 - **Run in cloud:** uses the authenticated `POST /v1/workflows/execute` endpoint and displays real node results. Currently works for the backend's allowed text tools and configured models.
 - **AI model setup:** Cloud Run does not itself supply API keys or models. Models must be added to the backend registry, with secret references; don't store keys in HTML.
-- **Unsupported operations:** v3.3's numeric condition operators, TikZ compiler integration, trim/replace/json-field local tools, and binary file uploads are **preview-only** until backend capabilities are added. The Run action clearly blocks unsupported workflows rather than simulating success.
+- **Unsupported operations:** numeric condition operators, trim/replace/json-field local tools and PDF input uploads remain preview-only. TikZ PDF/PNG compilation works in the cloud **only when the private compiler is deployed and COMPILER_URL is configured**. The Run action clearly blocks unsupported workflows rather than simulating success.
 - **Real results:** the inspector distinguishes actual cloud results from Preview simulations and supports cloud output-bundle exports.
 - **Limit:** The direct `execute` endpoint returns a completed result but does not create a persisted run record. Published workflow/job execution uses separate backend APIs.
 - **Admin-only access:** The page hides behind Firebase sign-in, and each backend request contains a fresh ID token. The public Firebase web config is not a secret. Backend authorization, not UI hiding, enforces access.
