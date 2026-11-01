@@ -792,6 +792,7 @@ async function runCloud(){
   if(!window.MimoCloud?.authorized){toast('Sign in before running in cloud.');return}
   const issues=renderCloudReadiness();
   if(issues.length){openDialog('checkDialog');return}
+  const flow=workflowJSON();
   const graph=window.MimoBridge.toBackend(flow,state.flowId||'draft',cloudModels);
   state.running=true;$('#runButton').disabled=true;$('#runButton .run-text').textContent='Running…';
   state.runStatus={};state.results={};state.lastRun=null;state.tab='run';setTabs();renderAll();
@@ -894,7 +895,7 @@ $('#workflowInputBtn').addEventListener('click',()=>openDialog('inputDialog'));$
 });
 
 $$('[data-close]').forEach(b=>b.addEventListener('click',()=>closeDialog(b.dataset.close)));$$('.dialog-backdrop').forEach(b=>b.addEventListener('pointerdown',e=>{if(e.target===b)b.hidden=true}));
-$('#initialFile').addEventListener('change',e=>{const f=e.target.files[0];if(f){$('#inputFileHint').textContent=`Selected: ${f.name} · ${Math.round(f.size/1024)} KB — stays on your device.`;$('#initialFormat').value=f.type.startsWith('image/')?'image':f.type.startsWith('text/')?'text':'document'}});
+$('#initialFile').addEventListener('change',e=>{const f=e.target.files[0];if(f){$('#inputFileHint').textContent=`Selected: ${f.name} · ${Math.round(f.size/1024)} KB — uploaded to Mimo only when Run in cloud is clicked.`;$('#initialFormat').value=f.type.startsWith('image/')?'image':f.type.startsWith('text/')?'text':'document'}});
 // Block builder and portable custom block definitions.
 $$('[data-view]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));$('#openBuilder').addEventListener('click',()=>{builderDefaults();setView('builder')});$('#builderBack').addEventListener('click',()=>setView('workflow'));
 $('#builderProvider').innerHTML=options(Object.keys(MODELS),'OpenAI');
