@@ -1,0 +1,30 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mimo — Budgets & usage</title><link rel="stylesheet" href="./site.css"></head>
+<body data-page="budgets" style="margin:0"><main class="mg-page"><div class="mg-wrap">
+<section class="mg-hero"><div><span class="mg-eyebrow">Control / Observe</span><h1>Budgets & usage</h1><p>Track recorded provider spend, inspect model token usage and set spending limits before you run multi-step AI workflows.</p></div>
+<button class="mg-btn" id="refreshBudgets">↻ Refresh usage</button></section>
+<div class="mg-grid">
+  <div class="mg-card"><span class="mg-stat">Total recorded spend</span><div class="mg-metric" id="totalSpend">—</div><div class="mg-metric-label">Lifetime USD across recorded calls</div></div>
+  <div class="mg-card"><span class="mg-stat">AI calls</span><div class="mg-metric" id="totalCalls">—</div><div class="mg-metric-label">Recorded model invocations</div></div>
+  <div class="mg-card"><span class="mg-stat">Active spending policies</span><div class="mg-metric" id="totalPolicies">—</div><div class="mg-metric-label">Global and model-specific thresholds</div></div>
+</div>
+<div class="mg-alert warn"><strong>Limits are checked before each model call.</strong> A single call can exceed the remaining amount; limits are not a guaranteed exact billing cap. Totals are cumulative, not monthly. For accurate estimates, register provider-specific token pricing in <a href="./models.html">AI models</a>.</div>
+<div class="mg-section"><h2>Spending policies</h2></div>
+<div id="policyList" class="mg-list"><div class="mg-empty">Loading policies…</div></div>
+<div class="mg-section"><h2>Create or update a spending policy</h2></div>
+<div class="mg-card"><form id="budgetForm">
+  <div class="mg-fields">
+    <div class="mg-field"><label for="budgetScope">Applies to</label><select id="budgetScope"><option value="global">All models (global)</option><option value="model">One registered model</option></select></div>
+    <div class="mg-field" id="budgetModelWrap" hidden><label for="budgetModel">Model ID</label><select id="budgetModel"></select></div>
+    <div class="mg-field"><label for="budgetHard">Hard threshold (USD)</label><input id="budgetHard" required type="number" min="0.01" step="0.01" placeholder="10.00"></div>
+    <div class="mg-field"><label for="budgetSoft">Warning threshold (USD)</label><input id="budgetSoft" required type="number" min="0" step="0.01" value="0"></div>
+  </div>
+  <div class="mg-actions"><button class="mg-btn primary" type="submit" id="saveBudget">Save policy</button></div>
+  <p class="mg-hint">Saving the same scope and model ID updates the existing policy. A soft limit is informational in the current backend; a hard limit blocks subsequent calls after the recorded spend reaches the threshold.</p>
+  <div class="mg-feedback" id="budgetFeedback" role="status" aria-live="polite"></div>
+</form></div>
+<div class="mg-section"><h2>Usage by model</h2></div>
+<div id="usageByModel" class="mg-grid two"><div class="mg-empty">Loading model usage…</div></div>
+<div class="mg-section"><h2>Recent provider requests</h2><span class="mg-hint">Up to 30 recorded calls</span></div>
+<div class="mg-card" style="overflow-x:auto"><table class="mg-table"><thead><tr><th>Model</th><th>Input tokens</th><th>Output tokens</th><th>Cost</th></tr></thead><tbody id="usageCalls"><tr><td colspan="4">Loading…</td></tr></tbody></table></div>
+</div></main><script src="./site.js"></script><script src="./budgets.js"></script><script type="module" src="./cloud-auth.js"></script></body></html>
