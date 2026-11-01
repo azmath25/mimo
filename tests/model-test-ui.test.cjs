@@ -22,6 +22,9 @@ test("model test failure must be visible in registry and does not store API keys
   assert.match(js,/connection failed/);
   assert.match(js,/status:"Failed"/);
   assert.match(js,/btn\.textContent="Testing…"/);
+  assert.match(js,/if\(!m\.enabled\|\|!m\.secret_configured\)/);
+  assert.match(js,/MIMO_SECRET_/);
+  assert.match(js,/status:"Not configured"/);
   assert.match(js,/btn\.textContent="Test"/);
   assert.doesNotMatch(js,/localStorage\.setItem\([^\n]*(api_key|provider_key|secret_value)/);
 });
