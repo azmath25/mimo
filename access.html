@@ -1,0 +1,43 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mimo — API access</title><link rel="stylesheet" href="./site.css"></head>
+<body data-page="access" style="margin:0"><main class="mg-page"><div class="mg-wrap">
+<section class="mg-hero"><div><span class="mg-eyebrow">Deploy / Connect</span><h1>API access & endpoints</h1><p>Turn a published Mimo workflow into a stable, versioned API that your quiz website or another app can call using a project key.</p></div>
+<a href="./workflows.html" class="mg-btn">Manage published workflows ↗</a></section>
+<div class="mg-alert warn"><strong>Execution service required.</strong> Your current Cloud Run service has <code>MIMO_API_ROLE=studio</code>. Its <code>/v1/workflows/{id}/runs</code> endpoint is intentionally unavailable. To use external workflow APIs, deploy a separate Cloud Run service with <code>MIMO_API_ROLE=execution</code>, then enter that HTTPS URL in the endpoint generator below. Until that exists, generated addresses are templates—not live APIs.</div>
+<div class="mg-grid two">
+<section class="mg-card"><h2>1. Create an API project</h2><p>Every integration gets its own project ID and randomly generated access key. The key is displayed only once.</p>
+  <form id="projectForm"><div class="mg-fields">
+    <div class="mg-field"><label for="projectId">Project ID</label><input id="projectId" required maxlength="64" pattern="[a-zA-Z0-9_-]+" placeholder="math_quiz"></div>
+    <div class="mg-field"><label for="projectName">Project name</label><input id="projectName" required maxlength="255" placeholder="Math Quiz Website"></div>
+  </div><div class="mg-actions"><button type="submit" class="mg-btn primary" id="createProject">Create project & key</button></div>
+  </form><div id="projectFeedback" class="mg-feedback" role="status" aria-live="polite"></div>
+  <div id="apiKeyReveal" class="mg-alert warn" hidden><strong>Copy this key now. It cannot be retrieved again.</strong><pre class="mg-pre" id="apiKeyValue"></pre><div class="mg-actions"><button id="copyApiKey" class="mg-btn" type="button">Copy one-time key</button><button id="hideApiKey" class="mg-btn" type="button">Hide key</button></div><p class="mg-hint">Store this only in the other application's server-side secrets. Never embed it in a public JavaScript frontend.</p></div>
+</section>
+<section class="mg-card"><h2>2. Grant a workflow</h2><p>Choose an API project, select a published version and explicitly grant permission to run it.</p>
+<form id="grantForm"><div class="mg-fields">
+ <div class="mg-field span"><label for="grantProject">Project ID</label><select id="grantProject"><option value="">Create an API project first</option></select></div>
+ <div class="mg-field"><label for="grantWorkflow">Published workflow</label><select id="grantWorkflow"><option value="">Loading workflows…</option></select></div>
+ <div class="mg-field"><label for="grantVersion">Published version</label><select id="grantVersion"><option value="">Select a workflow</option></select></div>
+</div><div class="mg-actions"><button type="submit" class="mg-btn primary" id="grantPermission">Grant run permission</button></div></form>
+<div id="grantFeedback" class="mg-feedback" role="status" aria-live="polite"></div>
+<p class="mg-hint">Project identifiers are remembered locally for convenience; API keys are never stored. This page cannot yet list existing server-side permissions.</p>
+</section></div>
+<div class="mg-section"><h2>3. Generate a workflow API address</h2></div>
+<section class="mg-card"><div class="mg-fields">
+ <div class="mg-field span"><label for="executionOrigin">Execution Cloud Run service URL (HTTPS)</label><input id="executionOrigin" type="url" placeholder="https://your-execution-service.europe-west1.run.app" autocomplete="off">
+ <span class="mg-hint">Only enter the separate execution service, not the current Mimo Studio service. An entered URL is not proof that it is running.</span></div>
+ <div class="mg-field"><label for="endpointWorkflow">Workflow</label><select id="endpointWorkflow"></select></div>
+ <div class="mg-field"><label for="endpointVersion">Published version</label><select id="endpointVersion"></select></div>
+</div>
+<div class="mg-actions"><span class="mg-pill warn" id="endpointStatus">Execution service not configured</span><button class="mg-btn" type="button" id="copyEndpoint" disabled>Copy endpoint</button><button class="mg-btn" type="button" id="copyRequest" disabled>Copy request example</button></div>
+<div class="mg-stat" style="margin:24px 0 8px">HTTP ENDPOINT</div><pre id="endpointPreview" class="mg-pre">Configure an execution service and publish a workflow to generate an address.</pre>
+<div class="mg-stat" style="margin:20px 0 8px">EXAMPLE REQUEST · RUN A PUBLISHED WORKFLOW</div><pre id="requestPreview" class="mg-pre">A versioned POST request will appear here.</pre>
+<p class="mg-hint">Use <code>Authorization: Bearer YOUR_PROJECT_API_KEY</code> from a trusted server only. The <code>/runs</code> endpoint accepts a JSON body containing <code>input</code>, <code>version</code> and <code>background</code>. For streaming, the same workflow exposes <code>/stream</code> on the execution service.</p>
+<div id="endpointFeedback" class="mg-feedback" role="status" aria-live="polite"></div>
+</section>
+<div class="mg-section"><h2>Manage project access</h2></div>
+<section class="mg-card"><h2>Revoke a project key</h2><p>Revocation disables its project key. Existing API credentials cannot be recovered or rotated through this page; create a new project if necessary.</p>
+<div class="mg-fields"><div class="mg-field"><label for="revokeProject">Project</label><select id="revokeProject"></select></div></div>
+<div class="mg-actions"><button class="mg-btn danger" type="button" id="revokeProjectBtn">Revoke project</button></div>
+<div id="revokeFeedback" class="mg-feedback" role="status"></div></section>
+</div></main><script src="./site.js"></script><script src="./access.js"></script><script type="module" src="./cloud-auth.js"></script></body></html>
