@@ -26,6 +26,9 @@
   document.body.prepend(nav);
   if(!document.getElementById("cloudGate")){
     const gate=document.createElement("div");gate.className="cloud-gate";gate.id="cloudGate";
+    // Firebase restores its persisted user asynchronously. Keep the login hidden
+    // until authentication actually determines that sign-in is required.
+    gate.hidden=true;
     gate.setAttribute("role","dialog");gate.setAttribute("aria-modal","true");gate.setAttribute("aria-label","Mimo administrator sign in");
     gate.innerHTML=`<div class="cloud-card">
       <div class="cloud-logo">mimo<span style="color:#bbb">.</span> ✳</div>
