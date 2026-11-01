@@ -3,7 +3,7 @@
  "use strict";
  const $=id=>document.getElementById(id);
  const initial=$("tikzSource").value;
- let lastUrl=null, active=false;
+ let lastUrl=null, active=false, lastFormat="pdf";
  function note(message,bad=false){
    const target=$("tikzStatus");target.textContent=message;
    target.classList.toggle("error",bad);
@@ -11,6 +11,9 @@
  function freeUrl(){
    if(lastUrl){URL.revokeObjectURL(lastUrl);lastUrl=null}
    $("tikzPreview").removeAttribute("src");
+   $("tikzImagePreview").removeAttribute("src");
+   $("tikzPreview").hidden=false;
+   $("tikzImagePreview").hidden=true;
    $("downloadTikz").disabled=true;
  }
  async function readiness(){
@@ -28,13 +31,17 @@
  $("compileTikz").addEventListener("click",async()=>{
    if(!active||!window.MimoCloud?.authorized)return;
    const source=$("tikzSource").value;
+   const format=$("tikzFormat").value;
    if(!source.trim())return note("Write some TikZ/LaTeX source first.",true);
    $("compileTikz").disabled=true;freeUrl();note("Compiling via isolated TeX Live worker…");
    try{
-     const blob=await MimoCloud.requestBlob("/v1/compiler/pdf",{method:"POST",body:{source}});
-     if(blob.type!=="application/pdf")throw Error("Compiler returned an unexpected output type.");
-     lastUrl=URL.createObjectURL(blob);
-     $("tikzPreview").src=lastUrl;
+     const blob=await MimoCloud.requestBlob("/v1/compiler/"+format,{method:"POST",body:{source}});
+     if(blob.type!==(format==="pdf"?"application/pdf":"image/png"))throw Error("Compiler returned an unexpected output type.");
+     lastUrl=URL.createObjectURL(blob);lastFormat=format;
+     $("tikzPreview").hidden=format!=="pdf";
+     $("tikzImagePreview").hidden=format!=="png";
+     if(format==="png")$("tikzImagePreview").src=lastUrl;
+     else $("tikzPreview").src=lastUrl;
      $("downloadTikz").disabled=false;
      note("Compilation complete. PDF is ready to preview or download.");
    }catch(e){note("Compilation failed: "+e.message,true)}
@@ -42,11 +49,11 @@
  });
  $("downloadTikz").addEventListener("click",()=>{
    if(!lastUrl)return;
-   const a=document.createElement("a");a.href=lastUrl;a.download="mimo-tikz.pdf";
+   const a=document.createElement("a");a.href=lastUrl;a.download="mimo-tikz."+lastFormat;
    document.body.append(a);a.click();a.remove();
  });
  $("resetTikz").addEventListener("click",()=>{
-   $("tikzSource").value=initial;freeUrl();note("Example restored.");
+   $("tikzSource").value=initial;$("tikzFormat").value="pdf";freeUrl();note("Example restored.");
  });
  window.addEventListener("beforeunload",freeUrl);
  MimoSite.whenReady(readiness);

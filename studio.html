@@ -519,17 +519,17 @@ function runUsageHTML(n,r){
 }
 function compiledButton(n,r){
  const file=r?.data?.backendResult?.content;
- if(window.MimoBridge.backendType(n)!=='compiler'||!file||file.media_type!=='application/pdf')return '';
+ if(window.MimoBridge.backendType(n)!=='compiler'||!file||!['application/pdf','image/png'].includes(file.media_type))return '';
  if(!/^[a-f0-9]{64}$/.test(file.checksum_sha256||''))return '';
  return '<button class="btn tiny" type="button" data-compiled-id="'+safe(n.id)+
-   '" data-compiled-hash="'+safe(file.checksum_sha256)+'">↓ Download compiled PDF</button>';
+   '" data-compiled-hash="'+safe(file.checksum_sha256)+'" data-compiled-media="'+(file.media_type==='image/png'?'png':'pdf')+'">↓ Download compiled '+(file.media_type==='image/png'?'PNG':'PDF')+'</button>';
 }
-async function downloadCompiledPdf(nodeId,digest){
+async function downloadCompiledPdf(nodeId,digest,media='pdf'){
  try{
    const blob=await window.MimoCloud.requestBlob('/v1/artifacts/compiled/'+
-     encodeURIComponent(nodeId)+'/'+encodeURIComponent(digest));
+     encodeURIComponent(nodeId)+'/'+encodeURIComponent(digest)+'?media='+encodeURIComponent(media));
    const url=URL.createObjectURL(blob),a=document.createElement('a');
-   a.href=url;a.download='mimo-tikz-'+nodeId+'.pdf';document.body.appendChild(a);a.click();a.remove();
+   a.href=url;a.download='mimo-tikz-'+nodeId+'.'+media;document.body.appendChild(a);a.click();a.remove();
    setTimeout(()=>URL.revokeObjectURL(url),60000);
    toast('Compiled PDF downloaded.');
  }catch(error){showCloudRunStatus('PDF download failed: '+error.message,true)}
@@ -826,7 +826,7 @@ panel.addEventListener('change',e=>{const n=node(state.selected);if(!n)return;co
   return
 }
 if(t.id==='nodeProvider'){n.provider=t.value;n.model=MODELS[t.value]?.[0]||'';renderAll();return}if(t.id==='nodeModel'){n.model=t.value==='__custom'?'':t.value;renderAll();return}const map={inputSource:'source',inputCombine:'combine',nodeOutput:'output',nodeReport:'report',nodeRequired:'required'};if(map[t.id])updateSelected(map[t.id],t.type==='checkbox'?t.checked:t.value)});
-panel.addEventListener('click',e=>{const download=e.target.closest('[data-compiled-hash]');if(download){downloadCompiledPdf(download.dataset.compiledId,download.dataset.compiledHash);return}const insert=e.target.closest('[data-insert-token]');if(insert){insertPromptToken(insert.dataset.insertTarget,insert.dataset.insertToken);return}const b=e.target.closest('[data-act]');if(!b)return;switch(b.dataset.act){case 'duplicate':duplicateSelected();break;case 'delete':case 'removeEdge':deleteSelected();break;case 'removeEdgeIndex':removeEdge(Number(b.dataset.edgeIndex));break;case 'run':runCloud();break;case 'preview':simulate();break;case 'saveTemplate':saveSelectedAsBlock();break;case 'exportNode':{const t=selectedToTemplate();if(t)downloadJSON(blockJSON(t),(t.name||'my-block')+'.block.json');break}case 'editInitial':openDialog('inputDialog');break;case 'viewGuide':openDialog('guideDialog');break;case 'exportCollected':{const n=node(state.selected),r=state.results[n?.id];if(r){const output={kind:'mimo/output',version:2,workflow:$('#workflowTitle').value,collector:n.name,simulated:state.lastRunKind!=='cloud',outputs:r.data.map(v=>({id:v.id,name:v.name,format:v.result?.format,task:v.result?.task,branchId:v.branchId||null,content:v.result?.data?.demo?'SIMULATED / COMPILER PREVIEW':v.result?.data?.text||v.result?.data?.fileName||null}))};downloadJSON(output,n.name+'.output.json')}break}}});
+panel.addEventListener('click',e=>{const download=e.target.closest('[data-compiled-hash]');if(download){downloadCompiledPdf(download.dataset.compiledId,download.dataset.compiledHash,download.dataset.compiledMedia);return}const insert=e.target.closest('[data-insert-token]');if(insert){insertPromptToken(insert.dataset.insertTarget,insert.dataset.insertToken);return}const b=e.target.closest('[data-act]');if(!b)return;switch(b.dataset.act){case 'duplicate':duplicateSelected();break;case 'delete':case 'removeEdge':deleteSelected();break;case 'removeEdgeIndex':removeEdge(Number(b.dataset.edgeIndex));break;case 'run':runCloud();break;case 'preview':simulate();break;case 'saveTemplate':saveSelectedAsBlock();break;case 'exportNode':{const t=selectedToTemplate();if(t)downloadJSON(blockJSON(t),(t.name||'my-block')+'.block.json');break}case 'editInitial':openDialog('inputDialog');break;case 'viewGuide':openDialog('guideDialog');break;case 'exportCollected':{const n=node(state.selected),r=state.results[n?.id];if(r){const output={kind:'mimo/output',version:2,workflow:$('#workflowTitle').value,collector:n.name,simulated:state.lastRunKind!=='cloud',outputs:r.data.map(v=>({id:v.id,name:v.name,format:v.result?.format,task:v.result?.task,branchId:v.branchId||null,content:v.result?.data?.demo?'SIMULATED / COMPILER PREVIEW':v.result?.data?.text||v.result?.data?.fileName||null}))};downloadJSON(output,n.name+'.output.json')}break}}});
 window.addEventListener('keydown',e=>{if($('.dialog-backdrop').some(dialog=>!dialog.hidden)){if(e.key==='Escape'){$$('.dialog-backdrop').forEach(x=>x.hidden=true)}return}if(e.target.closest('input,textarea,select,button')||e.target.isContentEditable)return;if(e.key==='Escape'){clearDraft();state.selected=null;state.selectedEdge=null;renderSelection();renderInspector()}if(e.key==='Delete'||e.key==='Backspace')deleteSelected();if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='d'&&state.selected){e.preventDefault();duplicateSelected()}});
 const sleep=t=>new Promise(r=>setTimeout(r,t));
 function resultText(r){if(!r)return '';const d=r.data;if(typeof d==='string')return d;if(d?.text!==undefined)return String(d.text);if(d?.original)return resultText({data:d.original});if(d?.fileName)return d.fileName;return ''}

@@ -43,6 +43,7 @@
         config.input = "{{inputs.1}}";
       } else if (type === "compiler") {
         config.source = "{{inputs.1}}";
+        config.target = n.compilerTarget === "png" ? "png" : "pdf";
       } else if (type === "condition") {
         const branches = asArray(n.branches);
         config.ports = branches.map(b => String(b.id));
@@ -127,8 +128,8 @@
           errors.push("TikZ compiler service is not enabled. Deploy the private compiler and configure COMPILER_URL.");
         if (n.toolEngine && n.toolEngine !== "pdflatex")
           errors.push("TikZ cloud compilation currently supports pdflatex only.");
-        if (n.compilerTarget && n.compilerTarget !== "pdf")
-          errors.push("TikZ cloud compilation currently returns PDF only.");
+        if (n.compilerTarget && !["pdf", "png"].includes(n.compilerTarget))
+          errors.push("TikZ cloud compilation currently returns PDF or PNG only.");
       }
       if (type === "condition") {
         if (n.conditionMode === "ai" || asArray(n.branches).some(b=>b.op !== "==" && b.op !== "else")) {
