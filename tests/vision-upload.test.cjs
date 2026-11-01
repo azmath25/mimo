@@ -34,6 +34,6 @@ test("Vision preset selects Groq Qwen and advertises image understanding explici
  const script=fs.readFileSync("models.js","utf8");
  assert.match(html,/value="groq_vision"/);
  assert.match(script,/model:"qwen\/qwen3\.8-27b"/);
- assert.match(script,/image_understanding:true/);
+ assert.match(script,/image_understanding:!generating&&\$\("capVision"\)\.checked/);
  assert.match(script,/secret:"groq"/);
 });

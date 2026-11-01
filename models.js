@@ -23,46 +23,146 @@
      model:"openrouter/free",secret:"openrouter",input:"0",output:"0"
    },
    groq:{
-     id:"groq_text",name:"Groq Text",
+     id:"groq_text",name:"Groq GPT-OSS 20B",
      provider:"openai_compatible",endpoint:"https://api.groq.com/openai/v1",
      model:"openai/gpt-oss-20b",secret:"groq",input:"",output:""
+   },
+   groq_120b:{
+     id:"groq_120b",name:"Groq GPT-OSS 120B",
+     provider:"openai_compatible",endpoint:"https://api.groq.com/openai/v1",
+     model:"openai/gpt-oss-120b",secret:"groq",input:"",output:""
    },
    groq_vision:{
      id:"groq_vision",name:"Groq Vision (Qwen 3.8 27B)",
      provider:"openai_compatible",endpoint:"https://api.groq.com/openai/v1",
-     model:"qwen/qwen3.8-27b",secret:"groq",input:"",output:""
+     model:"qwen/qwen3.8-27b",secret:"groq",input:"",output:"",vision:true
+   },
+   gemini:{
+     id:"gemini_flash",name:"Gemini Flash",
+     provider:"openai_compatible",endpoint:"https://generativelanguage.googleapis.com/v1beta/openai",
+     model:"gemini-3.8-flash",secret:"gemini",input:"",output:"",vision:true
+   },
+   deepseek:{
+     id:"deepseek_flash",name:"DeepSeek Flash",
+     provider:"openai_compatible",endpoint:"https://api.deepseek.com",
+     model:"deepseek-flash",secret:"deepseek",input:"",output:""
+   },
+   cerebras:{
+     id:"cerebras_custom",name:"Cerebras — choose model ID",
+     provider:"openai_compatible",endpoint:"https://api.cerebras.ai/v1",
+     model:"",secret:"cerebras",input:"",output:""
+   },
+   openai:{
+     id:"openai_custom",name:"OpenAI — choose model ID",
+     provider:"openai_compatible",endpoint:"https://api.openai.com/v1",
+     model:"",secret:"openai",input:"",output:""
    }
  };
+ // These are suggestions, not an exhaustive or live model catalog.
+ // The exact remote ID can always be typed manually.
+ const providerSuggestions={
+   groq:["groq","groq_120b","groq_vision"],
+   groq_120b:["groq_120b","groq","groq_vision"],
+   groq_vision:["groq_vision","groq","groq_120b"],
+   openrouter:["openrouter"],
+   gemini:["gemini"],
+   deepseek:["deepseek"],
+   cerebras:[],
+   openai:[]
+ };
+ function setCapabilities(p){
+   const generate=p.provider==="image_generation";
+   $("capText").checked=!generate;
+   $("capVision").checked=!!p.vision;
+   $("capGenerate").checked=generate;
+ }
+ function fillSuggestionList(name,selected){
+   const ids=providerSuggestions[name]||[];
+   $("modelSuggestion").innerHTML=ids.map(id=>{
+     const p=providerPresets[id];
+     return '<option value="'+id+'">'+MimoSite.safe(p.name)+' · '+MimoSite.safe(p.model)+'</option>';
+   }).join("")+'<option value="custom">Use my own model ID</option>';
+   $("modelSuggestion").value=ids.includes(selected)?selected:"custom";
+   $("modelSuggestionsWrap").hidden=ids.length===0;
+ }
+ function applySuggested(name,keepProvider=false){
+   const p=providerPresets[name];if(!p||editing)return;
+   $("modelId").value=p.id;$("modelName").value=p.name;
+   $("modelRemote").value=p.model;
+   if(!keepProvider){
+     $("modelProvider").value=p.provider;
+     $("modelEndpoint").value=p.endpoint;
+     $("modelSecret").value=p.secret;
+     $("modelInputPrice").value=p.input;$("modelOutputPrice").value=p.output;
+     $("modelImagePrice").value="";
+   }
+   setCapabilities(p);secretEnv();
+   message("Configuration filled. "+($("modelSecretHint").textContent||"")+
+     (p.model?"":" Enter a supported model ID from your provider before registering."));
+ }
  function choosePreset(name){
    if(editing)return;
-   const p=providerPresets[name];if(!p)return;
-   $("modelId").value=p.id;$("modelName").value=p.name;
-   $("modelProvider").value=p.provider;$("modelRemote").value=p.model;
-   $("modelEndpoint").value=p.endpoint;$("modelSecret").value=p.secret;
-   $("modelInputPrice").value=p.input;$("modelOutputPrice").value=p.output;
-   $("modelImagePrice").value="";secretEnv();
-   message("Fields filled. Attach the "+$("modelSecretEnv").value+" Cloud Run secret before testing.");
+   if(!providerPresets[name]){
+     fillSuggestionList("","custom");
+     message("Enter any OpenAI-compatible API endpoint, the exact model ID and a secret reference. No backend code changes are needed.");
+     return;
+   }
+   fillSuggestionList(name,name);
+   applySuggested(name);
  }
-  function secretEnv(){
+ function secretEnv(){
    const ref=$("modelSecret").value.trim();
-   $("modelSecretEnv").value=ref?"MIMO_SECRET_"+ref.toUpperCase().replace(/-/g,"_"):"MIMO_SECRET_…";
+   const key=ref?"MIMO_SECRET_"+ref.toUpperCase().replace(/-/g,"_"):"MIMO_SECRET_…";
+   $("modelSecretEnv").value=key;
+   const reuse=models.some(m=>m.secret_ref===ref&&m.secret_configured);
+   $("modelSecretHint").textContent=!ref?"Choose a secret reference, never the API key.":
+      reuse?"A registered model already uses this attached secret — no new Cloud Run key needed.":
+      "If this key reference is not yet attached to Cloud Run, add "+key+" in Secret Manager once.";
  }
  function clear(){
    editing=null;$("modelForm").reset();$("modelPreset").disabled=false;$("modelPreset").value="";$("modelId").disabled=false;
    $("modelProvider").disabled=false;$("modelEnabled").checked=true;
    $("saveModel").textContent="Register model";$("modelFormTitle").textContent="Register a model";
-   $("cancelEdit").hidden=true;secretEnv();message("");
+   $("cancelEdit").hidden=true;fillSuggestionList("","custom");
+   $("capText").checked=true;$("capVision").checked=false;$("capGenerate").checked=false;
+   secretEnv();message("");
  }
  function edit(m){
    editing=m.id;$("modelPreset").value="";$("modelPreset").disabled=true;$("modelId").value=m.id;$("modelId").disabled=true;
    $("modelProvider").value=m.provider;$("modelProvider").disabled=true;
+   fillSuggestionList("","custom");
    $("modelName").value=m.display_name;$("modelRemote").value=m.remote_model_id;
    $("modelEndpoint").value=m.endpoint;$("modelSecret").value=m.secret_ref;
    $("modelEnabled").checked=m.enabled;
+   $("capText").checked=!!(m.capabilities?.text||m.capabilities?.chat);
+   $("capVision").checked=!!m.capabilities?.image_understanding;
+   $("capGenerate").checked=!!m.capabilities?.image_generation;
    $("modelInputPrice").value="";$("modelOutputPrice").value="";$("modelImagePrice").value="";
    $("saveModel").textContent="Save model changes";$("modelFormTitle").textContent="Edit "+m.display_name;
    $("cancelEdit").hidden=false;secretEnv();message("");
    $("modelForm").scrollIntoView({behavior:"smooth",block:"center"});
+ }
+ function clone(m){
+   clear();
+   const suffix="_copy";
+   const base=m.id.slice(0,64-suffix.length);
+   let candidate=(base+suffix).slice(0,64),count=2;
+   while(models.some(other=>other.id===candidate)){
+     candidate=(base.slice(0,62-String(count).length)+"_"+count++).slice(0,64);
+   }
+   $("modelId").value=candidate;
+   $("modelName").value=m.display_name+" (copy)";
+   $("modelProvider").value=m.provider;
+   $("modelRemote").value=m.remote_model_id;
+   $("modelEndpoint").value=m.endpoint;
+   $("modelSecret").value=m.secret_ref;
+   $("modelEnabled").checked=m.enabled;
+   $("capText").checked=!!(m.capabilities?.text||m.capabilities?.chat);
+   $("capVision").checked=!!m.capabilities?.image_understanding;
+   $("capGenerate").checked=!!m.capabilities?.image_generation;
+   secretEnv();
+   message("Copied the public configuration; edit the model ID or endpoint, then register. The existing secret reference is reused.");
+   $("modelForm").scrollIntoView({behavior:"smooth",block:"start"});
  }
  function rows(){
    const safe=esc(),host=$("modelList");
@@ -73,8 +173,11 @@
       (available?'Ready':m.enabled?'Key not attached':'Disabled')+'</span>'+
       (m.is_default?' <span class="mg-pill">Default</span>':'')+'</strong>'+
       '<small>'+safe(m.id)+' · '+safe(m.remote_model_id)+' · '+safe(m.provider)+'</small>'+
-      '<small class="mg-break">'+safe(m.endpoint)+' · secret reference '+safe(m.secret_ref)+'</small></div>'+
+      '<small class="mg-break">'+safe(m.endpoint)+' · secret reference '+safe(m.secret_ref)+
+       (m.capabilities?.image_understanding?' · vision':'')+
+       (m.capabilities?.image_generation?' · images':'')+'</small></div>'+
       '<div class="mg-row-actions"><button class="mg-btn small" data-action="edit">Edit</button>'+
+      '<button class="mg-btn small" data-action="clone" title="Copy configuration and reuse the attached provider key">Duplicate</button>'+
       '<button class="mg-btn small" data-action="test" '+(m.provider==="image_generation"?'disabled title="Image-model test is not yet supported"':'')+'>Test</button>'+
       '<button class="mg-btn small" data-action="default" '+(m.is_default||!m.enabled?'disabled':'')+'>Set default</button>'+
       '<button class="mg-btn small '+(m.enabled?'danger':'')+'" data-action="toggle">'+(m.enabled?'Disable':'Enable')+'</button></div></article>';
@@ -82,10 +185,21 @@
  }
  async function refresh(){
    try{
-     const data=await MimoSite.api("/v1/models");models=Array.isArray(data)?data:[];rows();
+     const data=await MimoSite.api("/v1/models");models=Array.isArray(data)?data:[];rows();secretEnv();
    }catch(error){$("modelList").innerHTML='<div class="mg-empty">Unable to load model registry. Check API permissions and CORS.</div>';message(error.message,true)}
  }
  $("modelPreset").addEventListener("change",e=>choosePreset(e.target.value));
+ $("modelSuggestion").addEventListener("change",e=>{
+   if(editing||e.target.value==="custom")return;
+   applySuggested(e.target.value,true);
+ });
+ $("modelProvider").addEventListener("change",e=>{
+   if(e.target.value==="image_generation"){
+     $("capGenerate").checked=true;$("capText").checked=false;$("capVision").checked=false;
+   }else{
+     $("capGenerate").checked=false;$("capText").checked=true;
+   }
+ });
  $("modelSecret").addEventListener("input",secretEnv);
  $("newModel").addEventListener("click",()=>{clear();$("modelForm").scrollIntoView({behavior:"smooth"})});
  $("cancelEdit").addEventListener("click",clear);
@@ -95,6 +209,7 @@
    const row=btn.closest("[data-id]"),m=models.find(x=>x.id===row?.dataset.id);
    if(!m)return;
    if(btn.dataset.action==="edit"){edit(m);return}
+   if(btn.dataset.action==="clone"){clone(m);return}
    try {
      btn.disabled=true;
      if(btn.dataset.action==="test"){
@@ -153,7 +268,7 @@
        showConnectionTest({
          title:m.display_name+" connection failed",status:"Failed",error:true,
          text:error.message,
-         meta:"Confirm the Groq key is referenced in Cloud Run as MIMO_SECRET_GROQ and inspect the backend logs if the provider returns an error."
+         meta:"Check the model ID, endpoint, provider limits, and the "+("MIMO_SECRET_"+m.secret_ref.toUpperCase().replace(/-/g,"_"))+" secret reference in Cloud Run."
        });
      }
      message(error.message,true);
@@ -166,19 +281,31 @@
    catch(error){message(error.message,true);return}
    const ref=$("modelSecret").value.trim();
    if(!/^[a-zA-Z0-9_-]+$/.test(ref)){message("Use letters, digits, dash or underscore in the secret reference.",true);return}
+   if(!$("modelRemote").value.trim()){
+     message("Enter the exact model ID supported by this provider.",true);return;
+   }
+   const generating=$("modelProvider").value==="image_generation";
+   if(generating!==$("capGenerate").checked){
+     message("Image generation requires the Image generation backend adapter and must be unchecked for text/chat models.",true);return;
+   }
+   if(!generating&&!$("capText").checked){
+     message("Enable Text / chat for an OpenAI-compatible model.",true);return;
+   }
    const payload={
      display_name:$("modelName").value.trim(),
      remote_model_id:$("modelRemote").value.trim(),
-     endpoint:url,secret_ref:ref,enabled:$("modelEnabled").checked
+     endpoint:url,secret_ref:ref,enabled:$("modelEnabled").checked,
+     capabilities:{
+       text:!generating&&$("capText").checked,
+       chat:!generating&&$("capText").checked,
+       image_understanding:!generating&&$("capVision").checked,
+       image_generation:generating
+     }
    };
    if(!editing){
      payload.id=$("modelId").value.trim();
      payload.provider=$("modelProvider").value;
-     if($("modelPreset").value==="groq_vision"){
-       payload.capabilities={text:true,chat:true,image_understanding:true};
-     }
-     if(payload.provider==="image_generation"){
-       payload.capabilities={image_generation:true,text:false};
+     if(generating){
        payload.default_response={kind:"image",delivery:"complete"};
      }
    }
@@ -191,7 +318,7 @@
    try{
      await MimoSite.api(editing?"/v1/models/"+encodeURIComponent(editing):"/v1/models",
        {method:editing?"PATCH":"POST",body:payload});
-     const msg=editing?"Model settings updated.":"Model registered. Attach its Cloud Run secret before testing.";
+     const msg=editing?"Model settings updated.":"Model registered. If its secret reference is already attached, you can test it immediately.";
      clear();await refresh();message(msg);
    }catch(error){message(error.message,true)}finally{setBusy(false)}
  });

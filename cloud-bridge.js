@@ -33,7 +33,10 @@
       if (type === "ai") {
         config.model_id = resolveModel(n, models);
         config.prompt = mapPrompt(n.prompt);
-        config.max_tokens = 1024;
+        // Each AI node controls its own completion budget; reasoning tokens count.
+        // Existing workflows without the setting retain the previous 1024 cap.
+        const budget = Number(n.maxTokens ?? 1024);
+        config.max_tokens = Number.isInteger(budget) && budget >= 64 && budget <= 16384 ? budget : 1024;
         config.response = {kind: n.output === "image" ? "image" : "text", delivery: "complete"};
       } else if (type === "tool") {
         config.tool = ({uppercase: "upper", lowercase: "lower"})[n.toolKind] || String(n.toolKind || "unsupported");
@@ -67,6 +70,7 @@
       name: String(n.config?.name || n.type), x: 60 + (i % 4) * 320, y: 130 + Math.floor(i / 4) * 240,
       execution: n.type === "tool" || n.type === "compiler" ? "tool" : n.type === "condition" ? "condition" : "ai",
       prompt: n.config?.prompt || "", model: n.config?.model_id || "",
+      maxTokens: n.config?.max_tokens || 1024,
       toolKind: n.config?.tool === "upper" ? "uppercase" : n.config?.tool === "lower" ? "lowercase" : n.config?.tool || "trim",
       branches: asArray(n.config?.ports).map(port => ({id:port,label:port,op:"==",value:""})),
       accept: ["text","document","image","chat"], output: "text"
@@ -107,6 +111,10 @@
       }
       if (type === "ai" && !asArray(models).some(m=>m.id === resolveModel(n, models) && m.enabled)) {
         errors.push("Configure an enabled backend model for ‘" + n.name + "’ before cloud execution.");
+      }
+      if(type === "ai" && n.maxTokens !== undefined &&
+         (!Number.isInteger(Number(n.maxTokens)) || Number(n.maxTokens)<64 || Number(n.maxTokens)>16384)) {
+        errors.push("Output-token budget for ‘" + n.name + "’ must be a whole number from 64 to 16384.");
       }
       if (type === "ai" && /\{\{\s*(?!input\s*\}\}|inputs\.\d+\s*\}\}|workflow\.input\s*\}\})[^}]+\}\}/.test(n.prompt || "")) {
         errors.push("‘" + n.name + "’ uses prompt variables not yet supported by the backend.");
