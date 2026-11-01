@@ -164,6 +164,9 @@
 .studio-actions-popover{position:absolute;right:0;top:39px;z-index:110;width:190px;padding:9px;display:flex;flex-direction:column;gap:5px;background:#fff;border:1px solid #e2e5e7;box-shadow:0 12px 35px #00000018;border-radius:13px}
 .studio-actions-popover .btn{justify-content:flex-start;width:100%;white-space:normal}
 @media(max-width:780px){.app{height:calc(100dvh - 129px)}.topbar{padding:0 10px;gap:8px}.top-actions{gap:4px}.top-actions .btn.compact{padding:8px}}
+/* Persistent, accessible cloud-run feedback, visible beyond the brief canvas toast. */
+#cloudRunMessage{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);width:min(680px,calc(100vw - 28px));z-index:150;background:#fff;border:1px solid #d5e6db;box-shadow:0 9px 30px #0002;color:#23452f;padding:12px 16px;border-radius:13px;font-size:13px;line-height:1.5;text-align:center;pointer-events:none}
+#cloudRunMessage.error{border-color:#e5bfc1;color:#9b282f;background:#fffafa}
 </style>
 </head>
 <body data-page="studio">
@@ -173,6 +176,7 @@
   <div class="top-center"><div class="view-nav"><button class="nav-link active" data-view="workflow">◫ Workflow</button><button class="nav-link" data-view="builder">✳ Build block</button></div><input class="workflow-name" id="workflowTitle" aria-label="Workflow name" value="Untitled workflow" maxlength="60"></div>
   <div class="top-actions"><span class="draft-status" id="draftStatus" aria-live="polite">Not saved</span><button class="btn icononly mobile-inspect" id="toggleInspector" aria-label="Open inspector"><svg class="icon" viewBox="0 0 24 24"><path d="M4 4h16v16H4zM14 4v16M7 8h4M7 12h4"/></svg></button><button class="btn compact" id="checkFlowBtn" title="Check which blocks are ready for real cloud execution">✓ Check</button><button class="btn compact" id="saveFlow" title="Save workflow to Neon (with a local backup)">♡ Save</button><details class="studio-actions-menu"><summary class="btn compact">More ▾</summary><div class="studio-actions-popover"><button class="btn compact" id="workflowInputBtn" title="Set starting input">↳ Input</button><button class="btn compact" id="workflowGuideBtn" title="View the workflow guide and export its documentation">▤ Guide</button><button class="btn compact" id="openFlows" title="Saved workflows">◫ Open</button><button class="btn compact" id="exportFlow" title="Download workflow JSON">↓ JSON</button><button class="btn compact" id="importFlow" title="Import workflow JSON">↑ JSON</button><a href="./workflows.html" class="btn compact" style="text-decoration:none">All workflows</a></div></details><button class="btn compact" id="previewButton" title="Local simulation, no AI provider calls">◇ Preview</button><button class="btn dark" id="runButton"><svg class="icon" viewBox="0 0 24 24" style="width:15px;height:15px;fill:currentColor;stroke:none"><path d="M8 5v14l11-7z"/></svg><span class="run-text">Run in cloud</span></button></div>
 </header>
+<div id="cloudRunMessage" role="status" aria-live="polite" hidden></div>
 <main class="app">
 <aside class="sidebar" id="library">
   <div class="side-overline">Your little laboratory ✳</div>
@@ -226,7 +230,8 @@
     <div class="builder-bottom"><button type="button" class="btn" id="resetBlock">+ New block</button><button type="button" class="btn" id="exportDraftBlock">↓ Download block JSON</button><button type="submit" class="btn dark" id="saveCustomBlock">♡ Save to my block library</button></div>
   </form><div class="builder-right"><div class="builder-card preview-card"><span class="eyebrow">LIVE BLOCK PREVIEW</span><div class="preview-sample" id="builderPreview"></div><p>One block, endless workflows. ♡</p></div><div class="builder-card"><div class="card-title"><span class="num">♡</span><div><b>Your block collection</b><p>Stored in this browser. Export JSON for backup or sharing.</p></div></div><div id="builderSavedList" class="saved-block-list"></div><button class="btn" id="builderImportBlock" type="button" style="width:100%;margin-top:14px">↑ Import block JSON</button></div></div></div>
 </section>
-<div class="dialog-backdrop" id="inputDialog" hidden><div class="dialog"><div class="dialog-top"><div><span class="eyebrow">THE VERY BEGINNING</span><h2>Workflow input ✳</h2><p>Every Input block forwards exactly this starting material, unchanged, to every connected branch.</p></div><button class="btn icononly" data-close="inputDialog" aria-label="Close">×</button></div><div class="field"><label class="field-label" for="initialFormat">Starting format</label><select id="initialFormat" class="selectbox"><option value="text">Text</option><option value="document">Document</option><option value="image">Image</option><option value="chat">Chat response</option></select></div><div class="field"><label class="field-label" for="initialText">Starting text / message</label><textarea class="areabox" id="initialText" rows="6" placeholder="Paste a problem, instructions or context here…"></textarea></div><div class="field"><label class="field-label" for="initialFile">Or choose a file (stays on this device)</label><input type="file" id="initialFile" accept="image/*,.pdf,.txt,.md,.doc,.docx" class="textbox"><p class="field-hint" id="inputFileHint">Files remain in memory in this browser session; binary data is never embedded in workflow JSON exports.</p></div><div class="dialog-actions"><button class="btn" data-close="inputDialog">Cancel</button><button class="btn dark" id="applyInitialInput">Use this input</button></div></div></div>
+<div class="dialog-backdrop" id="inputDialog" hidden><div class="dialog"><div class="dialog-top"><div><span class="eyebrow">THE VERY BEGINNING</span><h2>Workflow input ✳</h2><p>Every Input block forwards exactly this starting material, unchanged, to every connected branch.</p></div><button class="btn icononly" data-close="inputDialog" aria-label="Close">×</button></div><div class="field"><label class="field-label" for="initialFormat">Starting format</label><select id="initialFormat" class="selectbox"><option value="text">Text</option><option value="document">Document</option><option value="image">Image</option><option value="chat">Chat response</option></select></div><div class="field"><label class="field-label" for="initialText">Starting text / message</label><textarea class="areabox" id="initialText" rows="6" placeholder="Paste a problem, instructions or context here…"></textarea></div><div class="field"><label class="field-label" for="initialFile">Or choose a file (stays on this device)</label><input type="file" id="initialFile" accept="image/*,.pdf,.txt,.md,.doc,.docx" class="textbox"><p class="field-hint" id="inputFileHint">Files remain in memory in this browser session; binary data is never embedded in workflow JSON exports.</p>
+<button type="button" class="btn tiny" id="clearInitialFile" style="margin-top:9px">× Clear selected file — use text input</button></div><div class="dialog-actions"><button class="btn" data-close="inputDialog">Cancel</button><button class="btn dark" id="applyInitialInput">Use this input</button></div></div></div>
 <div class="dialog-backdrop" id="flowsDialog" hidden><div class="dialog"><div class="dialog-top"><div><span class="eyebrow">YOUR LITTLE ARCHIVE</span><h2>Saved workflows ♡</h2><p>Cloud drafts are stored in Neon. Local backups and JSON exports remain available.</p></div><button class="btn icononly" data-close="flowsDialog" aria-label="Close">×</button></div><div id="savedFlowsList" class="saved-block-list"></div><div class="dialog-actions"><button class="btn" id="newWorkflow">+ New workflow</button><button class="btn" id="modalImportFlow">↑ Import JSON</button><button class="btn dark" id="modalSaveFlow">♡ Save current workflow</button></div></div></div>
 <div class="dialog-backdrop" id="guideDialog" hidden><div class="dialog workflow-doc-dialog" role="dialog" aria-modal="true" aria-labelledby="guideTitle">
  <div class="guide-top"><div><span class="eyebrow">✳ AUTOMATIC WORKFLOW HANDBOOK</span><h2 id="guideTitle">The big picture.</h2><p>One living document of the purpose, sequence, prompts and connections of your entire workflow.</p></div><button type="button" class="btn icononly" data-close="guideDialog" aria-label="Close guide">×</button></div>
@@ -578,8 +583,8 @@ function renderCloudReadiness(){
     issues.push('Input rule needs attention in block: '+n.name);
   }
   if(!getLayers())issues.push('The workflow graph contains a cycle.');
-  if(state.initialFile||(state.initial.fileName&&!state.initial.text)){
-    issues.push('Binary input uploads are not yet supported in cloud execution. Use text input.');
+  if(state.initialFile||state.initial.fileName){
+    issues.push('A file is still attached to Workflow input. Click Input → Clear selected file to run text, or use the image-upload integration after it is deployed.');
   }
   if(!window.MimoCloud?.authorized)issues.unshift('Sign in as your Firebase administrator first.');
   const list=[...new Set(issues)];
@@ -718,7 +723,7 @@ function renderFlowList(){
 function openDialog(id){if(id==='guideDialog')refreshGuide();if(id==='inputDialog'){populateInputDialog()}if(id==='flowsDialog')renderFlowList();if(id==='checkDialog')renderCloudReadiness();$('#'+id).hidden=false;if(id==='guideDialog')refreshGuide()}
 function closeDialog(id){$('#'+id).hidden=true}
 function populateInputDialog(){$('#initialFormat').value=state.initial.format;$('#initialText').value=state.initial.text||'';$('#initialFile').value='';$('#inputFileHint').textContent=state.initialFile?`Current file: ${state.initialFile.name}. Choose a new one to replace it.`:state.initial.fileName?`Previous file: ${state.initial.fileName}. Re-select it to make its data available.`:'Files stay in this browser session; binary data is not included in workflow JSON.'}
-function applyInput(){const oldFormat=state.initial.format;const file=$('#initialFile').files[0];state.initial={format:$('#initialFormat').value,text:$('#initialText').value,fileName:file?file.name:(state.initialFile?state.initialFile.name:'')};if(file){state.initialFile=file;state.initial.format=file.type.startsWith('image/')?'image':['text/plain','text/markdown'].includes(file.type)?'text':'document'}else if(oldFormat!==state.initial.format){state.initialFile=null;state.initial.fileName=''}closeDialog('inputDialog');renderAll();toast('Input updated for all Input blocks ♡')}
+function applyInput(){const oldFormat=state.initial.format;const file=$('#initialFile').files[0];state.initial={format:$('#initialFormat').value,text:$('#initialText').value,fileName:file?file.name:(state.initialFile?state.initialFile.name:'')};if(file){state.initialFile=file;state.initial.format=file.type.startsWith('image/')?'image':['text/plain','text/markdown'].includes(file.type)?'text':'document'}else if(state.initial.format==='text'||oldFormat!==state.initial.format){state.initialFile=null;state.initial.fileName=''}closeDialog('inputDialog');renderAll();toast('Input updated for all Input blocks ♡')}
 function sanitizeNode(r){if(!r||typeof r!=='object')return null;const type=typeof r.type==='string'&&/^[a-zA-Z0-9_-]{1,90}$/.test(r.type)?r.type:'blank',t=typeInfo(type),rawId=string(r.id,75),id=/^[a-zA-Z0-9_-]{1,75}$/.test(rawId)?rawId:'';if(!id)return null;const allowed=FMT.includes(r.output)?r.output:t.output;const execution=['ai','tool','condition'].includes(r.execution)?r.execution:(t.execution||'ai');return {id,type,x:Number.isFinite(+r.x)?Math.max(-2000,Math.min(10000,+r.x)):50,y:Number.isFinite(+r.y)?Math.max(-2000,Math.min(10000,+r.y)):130,name:string(r.name,65)||t.name,summary:string(r.summary,140)||t.subtitle,prompt:string(r.prompt,10000),output:type==='input'?'text':type==='output'?'collection':allowed,execution,conditionMode:r.conditionMode==='ai'?'ai':'rule',conditionField:string(r.conditionField,120),branches:cleanBranches(r.branches),aiDemoBranch:string(r.aiDemoBranch,40),toolKind:TOOLS[r.toolKind]?r.toolKind:(t.toolKind||'trim'),toolEngine:['pdflatex','lualatex','xelatex','tectonic'].includes(r.toolEngine)?r.toolEngine:'pdflatex',compilerTarget:['pdf','svg','png'].includes(r.compilerTarget)?r.compilerTarget:'pdf',compilerEndpoint:string(r.compilerEndpoint,200)||'/api/compile/tikz',toolField:string(r.toolField,120),toolFind:string(r.toolFind,240),toolReplacement:string(r.toolReplacement,240),includeWorkflowGuide:r.includeWorkflowGuide===true,accept:Array.isArray(r.accept)?FMT.filter(x=>r.accept.includes(x)):FMT.slice(),source:['connected','workflow','manual'].includes(r.source)?r.source:t.source||'connected',combine:['all','first','latest'].includes(r.combine)?r.combine:'all',required:r.required!==false,report:r.report!==false,provider:MODELS.hasOwnProperty(r.provider)?r.provider:'OpenAI',model:string(r.model,100)||'gpt-6'}}
 function applyWorkflow(data,keepId=null){const r=data?.kind==='mimo/workflow'?data:data?.workflow||data;if(!r||!Array.isArray(r.nodes)||!Array.isArray(r.edges)||r.nodes.length>350||r.edges.length>1300)throw Error('That file is not a valid Mimo workflow.');if(r.customBlocks&&typeof r.customBlocks==='object'){for(const [id,b] of Object.entries(r.customBlocks)){if(/^c_[a-zA-Z0-9_-]{3,90}$/.test(id)&&!BASE[id])state.custom[id]=sanitizeBlock(b,id)}refreshTypes();storage(customKey,state.custom);buildTemplates();renderBuilderSaved()}
 const ids=new Set(),nodes=[];r.nodes.forEach(raw=>{const n=sanitizeNode(raw);if(n&&!ids.has(n.id)){ids.add(n.id);nodes.push(n)}});const edges=[],used=new Set();for(const e of r.edges){if(!e||!ids.has(e.from)||!ids.has(e.to)||e.from===e.to)continue;const a=nodes.find(n=>n.id===e.from),b=nodes.find(n=>n.id===e.to),key=e.from+'>'+e.to+':'+(e.branchId||'');if(executionOf(a)==='condition'&&!cleanBranches(a.branches).some(v=>v.id===e.branchId))continue;if(a.type==='output'||b.type==='input'||used.has(key))continue;used.add(key);edges.push({from:e.from,to:e.to,...(e.branchId?{branchId:e.branchId}:{})})}
@@ -768,35 +773,73 @@ function activeInputs(n){return state.edges.filter(e=>e.to===n.id).filter(e=>{co
 async function simulate(){if(state.running)return;const invalid=state.nodes.filter(n=>inputRule(n).invalid);if(invalid.length){selectNode(invalid[0].id);toast('Check input rule on '+invalid[0].name);return}const layers=getLayers();if(!layers||!layers.length){toast('Add some blocks to begin.');return}if(state.nodes.some(n=>n.type==='input')&&state.initial.fileName&&!state.initialFile&&!state.initial.text){toast('Re-select the original input file before testing.');openDialog('inputDialog');return}state.running=true;state.results={};state.runStatus={};state.lastRun=null;state.lastRunKind=null;state.tab='run';setTabs();renderAll();$('#previewButton').disabled=true;$('#previewButton').textContent='Previewing…';for(const ids of layers){const todo=ids.filter(id=>{const n=node(id);return !state.edges.some(e=>e.to===id)||activeInputs(n).length>0});ids.filter(id=>!todo.includes(id)).forEach(id=>state.runStatus[id]='skipped');todo.forEach(id=>state.runStatus[id]='running');renderNodes();renderEdges();renderInspector();if(todo.length)await sleep(220+todo.length*80);for(const id of todo){const n=node(id),ups=activeInputs(n),r0=ups[0]?.result||{format:state.initial.format,data:{...state.initial}},exec=executionOf(n);if(n.type==='input'){state.results[id]={format:state.initial.format,task:'Forwarded the initial input unchanged.',data:{...state.initial,file:state.initialFile?{name:state.initialFile.name,size:state.initialFile.size}:null}}}else if(n.type==='output'){const bundle=ups.map(x=>({id:x.from.id,name:x.from.name,branchId:x.edge.branchId||null,result:x.result}));state.results[id]={format:'collection',task:`Collected ${bundle.length} active result${bundle.length===1?'':'s'}; skipped branches are excluded.`,data:bundle}}else if(exec==='condition'){let chosen=null,value=null,reason='';if(n.conditionMode==='rule'){value=numericForCondition(n,r0);if(Number.isFinite(value)){chosen=n.branches.find(b=>b.op!=='else'&&compareValue(value,b.op,b.value))||n.branches[n.branches.length-1];reason=`Read ${n.conditionField||'input'} = ${value}.` }else reason='Unable to read a finite numeric value. Branching paused.'}else{chosen=n.branches.find(b=>b.id===n.aiDemoBranch)||null;reason=chosen?'Manual demo selection (not an AI decision).':'AI classifier is not connected. Choose a manual demo route in settings.'}const resolved=n.conditionMode==='ai'?renderBlockPrompt(n):null;state.results[id]={format:r0.format,task:reason+(chosen?' Routed to '+chosen.label+'.':''),data:{chosenBranchId:chosen?.id||null,chosenLabel:chosen?.label||'',value,original:r0.data,previewOnly:n.conditionMode==='ai',...(resolved?{promptResolved:resolved.text,promptMissing:resolved.missing}: {})}};if(!chosen){state.runStatus[id]='error';continue}}else if(exec==='tool'){state.results[id]=runTool(n,r0);if(state.results[id].data?.error){state.runStatus[id]='error';continue}}else{const resolved=renderBlockPrompt(n);state.results[id]={format:n.output,task:n.report?`Would call ${n.provider} / ${n.model}: ${n.name}.`:'Task summary disabled.',data:{demo:true,text:'',message:'AI content is not generated in frontend-only mode.',inputs:ups.map(x=>x.from.id),promptResolved:resolved.text,promptMissing:resolved.missing}}}state.runStatus[id]='done'}renderNodes();renderEdges();renderInspector()}
 state.running=false;state.lastRun=new Date();state.lastRunKind='preview';$('#previewButton').disabled=false;$('#previewButton').textContent='◇ Preview';renderNodes();renderEdges();renderInspector();toast('Flow tested — unused routes were skipped ♡')}
 
+function showCloudRunStatus(message,isError=false){
+  const el=$('#cloudRunMessage');
+  el.hidden=!message;
+  el.textContent=message||'';
+  el.classList.toggle('error',isError);
+}
 async function runCloud(){
-  if(state.running)return;
-  if(!window.MimoCloud?.authorized){toast('Sign in before running in cloud.');return}
-  if(state.initialFile || (state.initial.fileName && !state.initial.text)){
-    toast('Binary file inputs need the artifact upload integration. Use text input for this first cloud run.');return;
-  }
-  const flow=workflowJSON(),issues=window.MimoBridge.runIssues(flow,cloudModels);
-  if(issues.length){openDialog('checkDialog');return}
-  const graph=window.MimoBridge.toBackend(flow,state.flowId||'draft',cloudModels);
-  state.running=true;$('#runButton').disabled=true;$('#runButton .run-text').textContent='Running…';
-  state.runStatus={};state.results={};state.lastRun=null;state.tab='run';setTabs();renderAll();
+  const button=$('#runButton'),label=$('#runButton .run-text');
+  if(state.running){showCloudRunStatus('A workflow is already running. You can inspect its progress in the Run tab.',true);return}
+  if(!window.MimoCloud?.authorized){showCloudRunStatus('Sign in to Mimo before running in cloud.',true);return}
+  let started=false;
   try{
+    if(state.initialFile||state.initial.fileName){
+      showCloudRunStatus('A file is still selected. For text runs, click Input → Clear selected file — use text input.',true);
+      openDialog('inputDialog');
+      return;
+    }
+    // Validate ALL known issues before disabling the button or contacting the backend.
+    const issues=renderCloudReadiness();
+    if(issues.length){
+      showCloudRunStatus('Cloud run cannot start: '+issues[0]+' Open Check to see every issue.',true);
+      openDialog('checkDialog');
+      return;
+    }
+    const flow=workflowJSON();
+    const graph=window.MimoBridge.toBackend(flow,state.flowId||'draft',cloudModels);
+    state.running=true;started=true;button.disabled=true;label.textContent='Running…';
+    showCloudRunStatus('Cloud run started. Contacting Mimo backend…');
+    state.runStatus={};state.results={};state.lastRun=null;state.tab='run';setTabs();renderAll();
     const output=await window.MimoCloud.request('/v1/workflows/execute',{
       method:'POST',body:{workflow:graph,input:state.initial.text||''}
     });
+    if(!output||typeof output!=='object')throw Error('The backend returned no workflow output.');
     const lookup=Object.fromEntries(state.nodes.map(n=>[n.id,n]));
     for(const [id,result] of Object.entries(output.nodes||{})){
       state.runStatus[id]=result.status==='completed'?'done':result.status||'done';
       state.results[id]=window.MimoCloudResults.normalize(lookup[id]||{type:'unknown'},result,lookup);
     }
     for(const id of output.skipped||[])state.runStatus[id]='skipped';
-    state.lastRun=new Date();state.lastRunKind='cloud';toast('Cloud execution complete ♡');
-  }catch(e){toast('Cloud execution failed: '+e.message);console.error('Mimo cloud execution failed:',e)}
-  finally{
-    state.running=false;$('#runButton').disabled=false;$('#runButton .run-text').textContent='Run in cloud';
-    renderNodes();renderEdges();renderInspector();
+    state.lastRun=new Date();state.lastRunKind='cloud';
+    showCloudRunStatus('Cloud execution complete. Select an output block to inspect its result.');
+    toast('Cloud execution complete ♡');
+  }catch(e){
+    const message=e instanceof Error?e.message:String(e);
+    showCloudRunStatus('Cloud run failed: '+message,true);
+    console.error('Mimo cloud execution failed:',e);
+  }finally{
+    if(started){
+      state.running=false;
+      button.disabled=false;
+      label.textContent='Run in cloud';
+      try{renderNodes();renderEdges();renderInspector()}
+      catch(e){console.error('Mimo inspector redraw failed:',e)}
+    }
   }
 }
 $('#runButton').addEventListener('click',runCloud);
+$('#clearInitialFile').addEventListener('click',()=>{
+  const text=$('#initialText').value;
+  state.initialFile=null;
+  state.initial={format:'text',text,fileName:''};
+  $('#initialFile').value='';
+  $('#initialFormat').value='text';
+  $('#inputFileHint').textContent='Selected file removed. Text cloud runs are available.';
+  showCloudRunStatus('File cleared. Close the Input dialog and click Run in cloud.');
+  renderAll();
+});
 $('#quickStartWorkflow').addEventListener('click',quickStartWorkflow);
 $('#quickAIWorkflow').addEventListener('click',quickAIWorkflow);
 $('#checkFlowBtn').addEventListener('click',()=>openDialog('checkDialog'));
