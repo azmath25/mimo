@@ -113,7 +113,7 @@ test("plain text workflow still makes one real cloud request and recovers button
   assert.equal(h.received.length,1);
   assert.equal(h.received[0][0],"/v1/runs/drafts");
   assert.equal(h.received[0][1].body.input,"Find x when 2x+3=7");
-  assert.match(h.status,/Cloud execution complete/);
+  assert.match(h.status,/completed/);
   assert.equal(h.state.lastRunKind,"cloud");
   assert.equal(h.state.running,false);
   assert.equal(h.button.disabled,false);
@@ -130,7 +130,7 @@ test("a synchronous rendering exception no longer leaves Run permanently disable
   h.ctx.renderAll=()=>{};
   await h.run();
   assert.equal(h.received.length,1);
-  assert.match(h.status,/Cloud execution complete/);
+  assert.match(h.status,/completed/);
 });
 
 test("a failed network call shows the error and lets user retry",async()=>{
@@ -140,10 +140,10 @@ test("a failed network call shows the error and lets user retry",async()=>{
   assert.match(h.status,/HTTP 503/);
   assert.equal(h.button.disabled,false);
   assert.equal(h.state.running,false);
-  h.setRequest(async (path,opts)=>{h.received.push([path,opts]);return {nodes:{},skipped:[]}});
+  h.setRequest(async (path,opts)=>{h.received.push([path,opts]);return {id:"00000000-0000-4000-8000-000000000001",status:"completed",output:{nodes:{},skipped:[]}}});
   await h.run();
   assert.equal(h.received.length,1);
-  assert.match(h.status,/Cloud execution complete/);
+  assert.match(h.status,/completed/);
 });
 
 test("failed image upload restores the button and shows the error",async()=>{
