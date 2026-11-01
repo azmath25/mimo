@@ -51,14 +51,26 @@
     const row=button.closest("[data-workflow]");
     if(!row)return;
     const id=row.dataset.workflow,action=button.dataset.action;
-    if(action==="delete"&&!confirm("Delete unpublished workflow "+id+"? Published workflows cannot be removed."))return;
     busy=true;button.disabled=true;
     try{
       if(action==="versions")await versions(id);
       else if(action==="publish")await publish(id);
       else if(action==="delete"){
-        await MimoSite.api("/v1/workflows/"+encodeURIComponent(id),{method:"DELETE"});
-        info("Draft removed.");await refresh();
+        // Published releases are live API contracts: the explicit opt-in also
+        // removes all workflow/version grants. Past runs retain their snapshots.
+        const result=await MimoSite.api("/v1/workflows/"+encodeURIComponent(id)+"/versions");
+        const count=(result.versions||[]).length;
+        const name=workflows.find(w=>w.id===id)?.name||id;
+        const warning=count
+          ? "Permanently delete published workflow '"+name+"' ("+id+") with "+count+
+            " published version(s)?\\n\\nAll its API grants will be revoked and its execution endpoints will stop working. Existing run history is kept. This cannot be undone."
+          : "Delete unpublished workflow '"+name+"' ("+id+") permanently?";
+        if(!confirm(warning))return;
+        const path="/v1/workflows/"+encodeURIComponent(id)+(count?"?include_published=true":"");
+        const removed=await MimoSite.api(path,{method:"DELETE"});
+        info("Workflow deleted. "+(removed.removed_versions||0)+" version(s) and "+
+          (removed.removed_grants||0)+" API grant(s) removed; run history retained.");
+        await refresh();
       }
     }catch(error){info(error.message,true)}
     finally{button.disabled=false;busy=false}
