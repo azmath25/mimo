@@ -43,7 +43,7 @@
      if(format==="png")$("tikzImagePreview").src=lastUrl;
      else $("tikzPreview").src=lastUrl;
      $("downloadTikz").disabled=false;
-     note("Compilation complete. PDF is ready to preview or download.");
+     note("Compilation complete. "+format.toUpperCase()+" is ready to preview or download.");
    }catch(e){note("Compilation failed: "+e.message,true)}
    finally{$("compileTikz").disabled=!active}
  });
