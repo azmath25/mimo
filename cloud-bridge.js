@@ -81,8 +81,30 @@
     const errors = [];
     const nodes = asArray(flow?.nodes), edges = asArray(flow?.edges);
     if (!nodes.some(n=>n.type==="input") || !nodes.some(n=>n.type==="output")) errors.push("A cloud run needs an Input and Output block.");
+    const byId=new Map(nodes.map(n=>[n.id,n]));
+    const reachable=new Set(nodes.filter(n=>n.type==="input").map(n=>n.id));
+    let changed=true;
+    while(changed) {
+      changed=false;
+      for(const edge of edges) {
+        if(reachable.has(edge.from)&&!reachable.has(edge.to)) {
+          reachable.add(edge.to);changed=true;
+        }
+      }
+    }
+    for(const edge of edges){
+      if(!byId.has(edge.from)||!byId.has(edge.to)){
+        errors.push("A connection references a block that no longer exists.");
+      }
+    }
     for (const n of nodes) {
       const type = backendType(n);
+      if(type!=="input" && !edges.some(e=>e.to===n.id)){
+        errors.push("Connect an upstream block to ‘"+n.name+"’.");
+      }
+      if(type==="output" && !reachable.has(n.id)){
+        errors.push("Output ‘"+n.name+"’ cannot be reached from an Input block.");
+      }
       if (type === "ai" && !asArray(models).some(m=>m.id === resolveModel(n, models) && m.enabled)) {
         errors.push("Configure an enabled backend model for ‘" + n.name + "’ before cloud execution.");
       }

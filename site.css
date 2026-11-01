@@ -1,0 +1,87 @@
+/* Shared shell: sparse, accessible controls around the dedicated workflow canvas. */
+:root{--m-ink:#1d242b;--m-muted:#6f7b84;--m-border:#e2e8eb;--m-bg:#f7f9fa;--m-card:#fff;--m-accent:#205981;--m-accent-dark:#183f5b}
+.mimo-global-nav,.mimo-global-nav *,.mg-page,.mg-page *,.cloud-gate,.cloud-gate *{box-sizing:border-box}
+.mimo-global-nav{height:56px;flex:none;z-index:90;position:relative;background:#fff;border-bottom:1px solid #e7eced;color:var(--m-ink);display:flex;align-items:center;gap:20px;padding:0 24px;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.mimo-global-nav .mimo-brand{font-size:23px;font-weight:850;color:#202020;text-decoration:none;letter-spacing:-1.25px;margin-right:14px;white-space:nowrap}
+.mimo-global-nav .mimo-brand span{color:#b6bec3}
+.mimo-global-nav .mimo-links{display:flex;align-items:center;gap:4px;min-width:0;flex:1;overflow-x:auto;scrollbar-width:none}
+.mimo-global-nav .mimo-links::-webkit-scrollbar{display:none}
+.mimo-global-nav .mimo-links a{text-decoration:none;font-weight:650;font-size:12px;color:#66727d;padding:9px 11px;border-radius:9px;white-space:nowrap}
+.mimo-global-nav .mimo-links a:hover{color:#205981;background:#f3f7f9}
+.mimo-global-nav .mimo-links a[aria-current="page"]{color:#205981;background:#eaf2f7}
+.mimo-global-nav .mimo-account{display:flex;align-items:center;gap:10px}
+.mimo-global-nav .mimo-account #cloudStatus{font-size:11px;white-space:nowrap;color:#8c682f;background:#fcf7ed;border:1px solid #f1e6cd;padding:8px 10px;border-radius:18px}
+.mimo-global-nav .mimo-account #cloudStatus.cloud-on{color:#246446;background:#eef8f1;border-color:#d4ebd8}
+.mimo-global-nav .mimo-account #cloudAccountBtn{background:white;border:1px solid #dce4e8;border-radius:9px;padding:8px 11px;max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:#4c5963;cursor:pointer}
+.mimo-global-nav .mimo-account #cloudAccountBtn[hidden]{display:none!important}
+.mg-page{height:calc(100dvh - 56px);overflow-y:auto;background:var(--m-bg);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--m-ink);padding:42px clamp(18px,5vw,72px) 80px;line-height:1.5}
+.mg-wrap{width:min(1120px,100%);margin:0 auto}
+.mg-hero{margin-bottom:32px;display:flex;gap:24px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+.mg-eyebrow{color:#5b7990;text-transform:uppercase;font-size:10px;font-weight:800;letter-spacing:.18em}
+.mg-hero h1{font-size:clamp(27px,3vw,39px);letter-spacing:-1.6px;line-height:1.14;margin:9px 0 10px;font-weight:820}
+.mg-hero p{font-size:13px;max-width:620px;color:var(--m-muted);line-height:1.75;margin:0}
+.mg-grid{display:grid;gap:16px;grid-template-columns:repeat(3,minmax(0,1fr))}
+.mg-grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.mg-card{border:1px solid var(--m-border);background:var(--m-card);border-radius:17px;padding:24px;box-shadow:0 3px 15px #17304305;min-width:0}
+.mg-card h2{font-size:16px;letter-spacing:-.35px;margin:0 0 8px}
+.mg-card h3{font-size:13px;margin:0 0 7px}
+.mg-card p,.mg-hint{font-size:12px;line-height:1.7;color:var(--m-muted)}
+.mg-card p{margin:0 0 15px}
+.mg-card a{color:var(--m-accent)}
+.mg-metric{font-size:30px;line-height:1.15;font-weight:800;letter-spacing:-1.2px;margin-top:13px}
+.mg-metric-label{font-size:11px;color:var(--m-muted);margin-top:5px}
+.mg-section{margin:34px 0 15px;display:flex;align-items:center;justify-content:space-between;gap:15px}
+.mg-section h2{font-size:18px;margin:0;letter-spacing:-.5px}
+.mg-list{display:flex;flex-direction:column;gap:10px}
+.mg-row{border:1px solid var(--m-border);background:#fff;border-radius:13px;padding:16px 18px;display:flex;justify-content:space-between;align-items:center;gap:17px}
+.mg-row-body{flex:1;min-width:0}
+.mg-row-body strong{font-size:13px;display:block;overflow-wrap:anywhere}
+.mg-row-body small{font-size:11px;color:var(--m-muted);display:block;margin-top:5px;overflow-wrap:anywhere}
+.mg-row-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.mg-btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;gap:7px;cursor:pointer;border:1px solid #d6dfe4;border-radius:10px;background:#fff;color:#2e424f;padding:10px 13px;font-size:11.5px;font-weight:720;white-space:nowrap;line-height:1.15}
+.mg-btn:hover{background:#f0f5f7}.mg-btn:disabled{opacity:.48;cursor:not-allowed}
+.mg-btn.primary{background:var(--m-accent);color:#fff;border-color:var(--m-accent)}
+.mg-btn.primary:hover{background:var(--m-accent-dark)}
+.mg-btn.danger{color:#a73f3f;border-color:#f0d0d0}
+.mg-btn.small{font-size:10.5px;padding:8px 10px}
+.mg-pill{display:inline-flex;align-items:center;font-size:10px;font-weight:700;padding:5px 8px;border-radius:20px;background:#f3f5f7;color:#60717b}
+.mg-pill.good{color:#24744b;background:#eaf7ee}.mg-pill.warn{color:#946626;background:#fff4df}.mg-pill.bad{color:#aa3a3a;background:#fff0f0}
+.mg-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+.mg-field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.mg-field label{font-size:11px;font-weight:740;color:#465662}
+.mg-field input,.mg-field textarea,.mg-field select,.mg-select{border:1px solid #d9e2e6;border-radius:10px;padding:11px 12px;font-size:12px;color:#23323c;background:#fff;width:100%;font-family:inherit;min-width:0}
+.mg-field textarea{resize:vertical;min-height:100px}
+.mg-field input:focus,.mg-field textarea:focus,.mg-field select:focus{outline:2px solid #a6c7dd;outline-offset:1px}
+.mg-field.span{grid-column:1/-1}
+.mg-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:18px}
+.mg-alert{font-size:12px;line-height:1.6;border:1px solid #d8e5ec;background:#f2f7fa;color:#38576a;border-radius:12px;padding:13px 15px;margin:12px 0 20px}
+.mg-alert.warn{background:#fff8ea;border-color:#f0dcab;color:#765723}
+.mg-alert.error{background:#fff3f3;border-color:#f0cece;color:#9a3535}
+.mg-feedback{font-size:12px;margin:10px 0;color:#2c6d4c;min-height:18px}
+.mg-feedback.error{color:#a43131}
+.mg-empty{padding:30px 23px;text-align:center;background:#fff;border:1px dashed #d7e0e5;border-radius:15px;color:#7c8991;font-size:12px;line-height:1.7}
+.mg-stat{font-size:10.5px;color:#819099;text-transform:uppercase;font-weight:770;letter-spacing:.1em}
+.mg-pre{font:12px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;background:#f4f7f8;border:1px solid #e2e9ed;border-radius:12px;padding:16px;overflow-x:auto;white-space:pre-wrap;overflow-wrap:anywhere;max-height:340px}
+.mg-break{overflow-wrap:anywhere;word-break:break-word}
+.mg-progress{height:9px;background:#edf1f3;border-radius:99px;overflow:hidden;margin:11px 0}
+.mg-progress span{display:block;height:100%;background:#205981;border-radius:99px}
+.mg-txt-green{color:#24744b}.mg-txt-warn{color:#af7327}
+.mg-separator{border:0;border-top:1px solid var(--m-border);margin:22px 0}
+.mg-table{width:100%;border-collapse:collapse;font-size:12px}
+.mg-table th,.mg-table td{padding:12px 10px;border-bottom:1px solid #edf1f3;text-align:left}
+.mg-table th{font-size:10px;text-transform:uppercase;color:#84919c;letter-spacing:.08em}
+.mg-table td{overflow-wrap:anywhere}
+.mg-hidden,[hidden]{display:none!important}
+.cloud-gate[hidden]{display:none!important}
+.cloud-gate{position:fixed;inset:0;z-index:10000;background:#f7f9fbf7;display:grid;place-items:center;backdrop-filter:blur(9px);padding:20px;font-family:Inter,system-ui,-apple-system,sans-serif}
+.cloud-card{background:#fff;padding:34px;width:min(425px,100%);border:1px solid #e1e7eb;border-radius:21px;box-shadow:0 17px 70px #1b344014}
+.cloud-logo{font-size:27px;font-weight:850;letter-spacing:-1.7px}
+.cloud-card h1{font-size:26px;letter-spacing:-.8px;margin:15px 0 6px}
+.cloud-card p{font-size:12px;line-height:1.7;color:#6b7780;margin:0 0 16px}
+.cloud-card label{font-size:11px;font-weight:740;margin:12px 0 6px;display:block}
+.cloud-card input{width:100%;border:1px solid #d8e3e8;border-radius:10px;padding:11px 12px;font-size:12px}
+.cloud-card button{width:100%;border-radius:10px;padding:11px 12px;margin-top:11px;font-weight:750;font-size:12px;border:1px solid #dae3e8;background:#fff;cursor:pointer}
+.cloud-card button[type=submit]{background:#205981;border-color:#205981;color:white}
+.cloud-card #cloudAuthMessage{min-height:26px;margin-top:14px;line-height:1.6}
+@media(max-width:1100px){.mimo-global-nav{gap:8px;padding:0 12px}.mimo-global-nav .mimo-links a{padding:9px 8px}.mimo-global-nav .mimo-account #cloudStatus{display:none}}
+@media(max-width:780px){.mg-page{padding:25px 15px 60px}.mg-grid,.mg-grid.two{grid-template-columns:1fr}.mg-fields{grid-template-columns:1fr}.mg-row{align-items:flex-start;flex-direction:column}.mg-row-actions{width:100%}.mimo-global-nav{height:53px}.mimo-global-nav .mimo-brand{font-size:20px;margin-right:5px}.mimo-global-nav .mimo-account #cloudAccountBtn{max-width:75px;font-size:10px}.mg-page{height:calc(100dvh - 53px)}}

@@ -41,15 +41,27 @@ test("unavailable models and unsupported preview-only tools block cloud runs",()
   const b={...flow,nodes:[flow.nodes[0],{...flow.nodes[1],toolKind:"json-field"},flow.nodes[2]]};
   assert.ok(bridge.runIssues(b,[]).some(x=>x.includes("preview-only")));
 });
+test("disconnected nodes are reported as cloud execution issues",()=>{
+  const isolated={id:"b4",type:"tool",execution:"tool",toolKind:"uppercase",name:"Isolated"};
+  const broken={...flow,nodes:[...flow.nodes,isolated]};
+  assert.ok(bridge.runIssues(broken,[]).some(issue=>issue.includes("Connect an upstream block")));
+});
+
 test("static studio scripts parse, auth is required, and v3.3 canvas is retained",()=>{
-  const html=fs.readFileSync("index.html","utf8");
-  assert.match(html,/id="cloudGate"/);
+  const html=fs.readFileSync("studio.html","utf8");
+  const shell=fs.readFileSync("site.js","utf8");
+  assert.match(shell,/id="cloudGate"/);
   assert.match(html,/cloud-auth\.js/);
   assert.match(html,/cloud-bridge\.js/);
   assert.match(html,/MimoCloud\.request/);
   assert.match(html,/id="canvas"/);
   assert.match(html,/id="builderPage"/);
   assert.match(html,/id="previewButton"/);
+  assert.match(html,/id="checkFlowBtn"/);
+  assert.match(html,/id="quickStartWorkflow"/);
+  assert.match(html,/id="draftRecovery"/);
+  assert.match(html,/cloud-results\.js/);
+  assert.match(html,/mimo\.recovery\.v1/);
   const code=html.match(/<script>\s*([\s\S]*?)<\/script>/)?.[1];
   assert.ok(code && code.length>50000);
   assert.doesNotThrow(()=>new vm.Script(code));

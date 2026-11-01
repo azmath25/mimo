@@ -2,7 +2,7 @@ name: Mimo frontend checks
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'feature/**']
   pull_request:
     branches: [main]
 
@@ -14,7 +14,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Syntax-check Firebase module
-        run: node --check cloud-auth.js
+      - name: Syntax-check all site modules
+        run: |
+          for script in cloud-auth.js cloud-bridge.js cloud-results.js site.js overview.js workflows.js models.js access.js budgets.js; do node --check "$script"; done
       - name: Run adapter and studio smoke tests
         run: node --test tests/*.test.cjs
