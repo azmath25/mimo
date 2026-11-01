@@ -59,8 +59,7 @@ test("restored Firebase session does not flash the login screen during backend v
   assert.equal(app.elements.cloudAccountBtn.hidden,true);
   // Firebase getIdToken() is asynchronous; the fetch stub is assigned after
   // the token microtask completes. Verify that the intermediate gate stays hidden.
-  await Promise.resolve();
-  await Promise.resolve();
+  await new Promise(resolve=>setImmediate(resolve));
   assert.equal(typeof complete,"function","Backend verification request was started");
   assert.equal(app.elements.cloudGate.hidden,true);
   complete();
