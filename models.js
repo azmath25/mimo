@@ -5,18 +5,40 @@
  let models=[],editing=null,busy=false;
  function message(text,isError=false){MimoSite.notice("modelFeedback",text,isError)}
  function setBusy(v){busy=v;$("saveModel").disabled=v;$("reloadModels").disabled=v}
- function secretEnv(){
+ const providerPresets={
+   openrouter:{
+     id:"openrouter_free",name:"OpenRouter Free",
+     provider:"openai_compatible",endpoint:"https://openrouter.ai/api/v1",
+     model:"openrouter/free",secret:"openrouter",input:"0",output:"0"
+   },
+   groq:{
+     id:"groq_text",name:"Groq Text",
+     provider:"openai_compatible",endpoint:"https://api.groq.com/openai/v1",
+     model:"openai/gpt-oss-20b",secret:"groq",input:"",output:""
+   }
+ };
+ function choosePreset(name){
+   if(editing)return;
+   const p=providerPresets[name];if(!p)return;
+   $("modelId").value=p.id;$("modelName").value=p.name;
+   $("modelProvider").value=p.provider;$("modelRemote").value=p.model;
+   $("modelEndpoint").value=p.endpoint;$("modelSecret").value=p.secret;
+   $("modelInputPrice").value=p.input;$("modelOutputPrice").value=p.output;
+   $("modelImagePrice").value="";secretEnv();
+   message("Fields filled. Attach the "+$("modelSecretEnv").value+" Cloud Run secret before testing.");
+ }
+  function secretEnv(){
    const ref=$("modelSecret").value.trim();
    $("modelSecretEnv").value=ref?"MIMO_SECRET_"+ref.toUpperCase().replace(/-/g,"_"):"MIMO_SECRET_…";
  }
  function clear(){
-   editing=null;$("modelForm").reset();$("modelId").disabled=false;
+   editing=null;$("modelForm").reset();$("modelPreset").disabled=false;$("modelPreset").value="";$("modelId").disabled=false;
    $("modelProvider").disabled=false;$("modelEnabled").checked=true;
    $("saveModel").textContent="Register model";$("modelFormTitle").textContent="Register a model";
    $("cancelEdit").hidden=true;secretEnv();message("");
  }
  function edit(m){
-   editing=m.id;$("modelId").value=m.id;$("modelId").disabled=true;
+   editing=m.id;$("modelPreset").value="";$("modelPreset").disabled=true;$("modelId").value=m.id;$("modelId").disabled=true;
    $("modelProvider").value=m.provider;$("modelProvider").disabled=true;
    $("modelName").value=m.display_name;$("modelRemote").value=m.remote_model_id;
    $("modelEndpoint").value=m.endpoint;$("modelSecret").value=m.secret_ref;
@@ -47,6 +69,7 @@
      const data=await MimoSite.api("/v1/models");models=Array.isArray(data)?data:[];rows();
    }catch(error){$("modelList").innerHTML='<div class="mg-empty">Unable to load model registry. Check API permissions and CORS.</div>';message(error.message,true)}
  }
+ $("modelPreset").addEventListener("change",e=>choosePreset(e.target.value));
  $("modelSecret").addEventListener("input",secretEnv);
  $("newModel").addEventListener("click",()=>{clear();$("modelForm").scrollIntoView({behavior:"smooth"})});
  $("cancelEdit").addEventListener("click",clear);
@@ -86,7 +109,14 @@
      remote_model_id:$("modelRemote").value.trim(),
      endpoint:url,secret_ref:ref,enabled:$("modelEnabled").checked
    };
-   if(!editing){payload.id=$("modelId").value.trim();payload.provider=$("modelProvider").value}
+   if(!editing){
+     payload.id=$("modelId").value.trim();
+     payload.provider=$("modelProvider").value;
+     if(payload.provider==="image_generation"){
+       payload.capabilities={image_generation:true,text:false};
+       payload.default_response={kind:"image",delivery:"complete"};
+     }
+   }
    const input=$("modelInputPrice").value,output=$("modelOutputPrice").value;
    if(input!==""||output!==""||$("modelImagePrice").value!==""){
      if(input===""||output===""){message("To set pricing, enter both input and output rates.",true);return}
