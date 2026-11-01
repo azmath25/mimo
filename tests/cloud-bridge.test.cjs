@@ -41,6 +41,12 @@ test("unavailable models and unsupported preview-only tools block cloud runs",()
   const b={...flow,nodes:[flow.nodes[0],{...flow.nodes[1],toolKind:"json-field"},flow.nodes[2]]};
   assert.ok(bridge.runIssues(b,[]).some(x=>x.includes("preview-only")));
 });
+test("disconnected nodes are reported as cloud execution issues",()=>{
+  const isolated={id:"b4",type:"tool",execution:"tool",toolKind:"uppercase",name:"Isolated"};
+  const broken={...flow,nodes:[...flow.nodes,isolated]};
+  assert.ok(bridge.runIssues(broken,[]).some(issue=>issue.includes("Connect an upstream block")));
+});
+
 test("static studio scripts parse, auth is required, and v3.3 canvas is retained",()=>{
   const html=fs.readFileSync("index.html","utf8");
   assert.match(html,/id="cloudGate"/);
