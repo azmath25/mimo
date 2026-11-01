@@ -796,11 +796,24 @@ $('#workflowInputBtn').addEventListener('click',()=>openDialog('inputDialog'));$
       downloadJSON(data,v.name+'.workflow.json');
     }catch(e){toast('Export failed: '+e.message)}
   }else if(act==='delete'){
-    if(!confirm('Delete this '+(v.cloud?'Neon cloud draft':'local backup')+'?'))return;
-    try{if(v.cloud)await window.MimoCloud.request('/v1/workflows/'+encodeURIComponent(id),{method:'DELETE'});
+    try{
+      let count=0;
+      if(v.cloud){
+        const versions=await window.MimoCloud.request('/v1/workflows/'+encodeURIComponent(id)+'/versions');
+        count=(versions.versions||[]).length;
+      }
+      const prompt=count?
+        'Delete published workflow "'+v.name+'" with '+count+' published version(s)?\\n\\nThis permanently removes published versions and their API grants. Existing runs are retained.':
+        'Delete '+(v.cloud?'cloud draft':'local backup')+' "'+v.name+'"?';
+      if(!confirm(prompt))return;
+      if(v.cloud)await window.MimoCloud.request(
+        '/v1/workflows/'+encodeURIComponent(id)+(count?'?include_published=true':''),
+        {method:'DELETE'}
+      );
       state.savedFlows=state.savedFlows.filter(x=>x.id!==id);
-      if(state.flowId===id)state.flowId=null;
-      storage(workflowKey,state.savedFlows);renderFlowList();toast('Workflow deleted.');
+      if(state.flowId===id){state.flowId=null;state.currentCloud=false;lastSavedSignature=null;updateDraftStatus();}
+      storage(workflowKey,state.savedFlows);renderFlowList();
+      toast(count?'Published workflow, '+count+' version(s) and API grants deleted.':'Workflow deleted.');
     }catch(e){toast('Delete failed: '+e.message)}
   }
 });
