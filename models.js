@@ -26,6 +26,11 @@
      id:"groq_text",name:"Groq Text",
      provider:"openai_compatible",endpoint:"https://api.groq.com/openai/v1",
      model:"openai/gpt-oss-20b",secret:"groq",input:"",output:""
+   },
+   groq_vision:{
+     id:"groq_vision",name:"Groq Vision (Qwen 3.8 27B)",
+     provider:"openai_compatible",endpoint:"https://api.groq.com/openai/v1",
+     model:"qwen/qwen3.8-27b",secret:"groq",input:"",output:""
    }
  };
  function choosePreset(name){
@@ -169,6 +174,9 @@
    if(!editing){
      payload.id=$("modelId").value.trim();
      payload.provider=$("modelProvider").value;
+     if($("modelPreset").value==="groq_vision"){
+       payload.capabilities={text:true,chat:true,image_understanding:true};
+     }
      if(payload.provider==="image_generation"){
        payload.capabilities={image_generation:true,text:false};
        payload.default_response={kind:"image",delivery:"complete"};
