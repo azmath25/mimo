@@ -154,5 +154,8 @@ test("Studio renders and saves editable per-agent output-token budgets",()=>{
  assert.match(studio,/n\.maxTokens=raw/);
  assert.match(studio,/maxTokens:t\.maxTokens\|\|1024/);
  assert.match(studio,/maxTokens:n\.maxTokens/);
+ assert.match(studio,/function runUsageHTML\(/);
+ assert.match(studio,/The response may have been cut off/);
+ assert.match(studio,/output tokens \(including reasoning\)/);
  assert.doesNotThrow(()=>new vm.Script(studio.match(/<script>\s*([\s\S]*?)<\/script>/)[1]));
 });
