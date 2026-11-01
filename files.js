@@ -16,7 +16,7 @@ function choose(id){
  selected=files.find(f=>f.id===id)||null;resetPreview();
  if(!selected)return;
  $("fileMeta").textContent=selected.original_filename+" · "+selected.media_type+" · SHA-256 "+selected.checksum_sha256;
- $("downloadFile").disabled=false;$("ingestFile").disabled=false;
+ $("downloadFile").disabled=false;$("ingestFile").disabled=false;$("deleteFile").disabled=false;
  $("pdfOnly").hidden=selected.media_type!=="application/pdf";
  $("pageCount").value="Unknown until extraction";$("pageNo").value="1";$("pageNo").removeAttribute("max");
  $("extractedText").textContent="Click Read document to extract embedded text and detect PDF pages.";
@@ -64,6 +64,22 @@ $("fileList").addEventListener("click",e=>{const row=e.target.closest("[data-fil
 $("ingestFile").addEventListener("click",ingest);
 $("renderPage").addEventListener("click",pageImage);
 $("toStudio").addEventListener("click",pageToStudio);
+$("deleteFile").addEventListener("click",async()=>{
+ if(!selected)return;
+ if(!confirm("Permanently delete "+selected.original_filename+"? Workflows and past runs referencing the file may no longer be resumable."))return;
+ $("deleteFile").disabled=true;
+ try{
+  await api("/v1/artifacts/"+encodeURIComponent(selected.id),{method:"DELETE"});
+  selected=null;resetPreview();
+  $("downloadFile").disabled=true;$("ingestFile").disabled=true;
+  $("pdfOnly").hidden=true;
+  $("fileMeta").textContent="Choose a file from the library.";
+  $("extractedText").textContent="No file selected.";
+  await refresh();
+  notice("File deleted from object storage and library.");
+ }catch(e){notice("Deletion failed: "+e.message,true)}
+ finally{$("deleteFile").disabled=!selected}
+});
 $("downloadFile").addEventListener("click",async()=>{
  if(!selected)return;try{
   const blob=await MimoCloud.requestBlob("/v1/artifacts/"+encodeURIComponent(selected.id)+"/content");
