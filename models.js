@@ -5,6 +5,17 @@
  let models=[],editing=null,busy=false;
  function message(text,isError=false){MimoSite.notice("modelFeedback",text,isError)}
  function setBusy(v){busy=v;$("saveModel").disabled=v;$("reloadModels").disabled=v}
+ function showConnectionTest({title,status="Testing",text="",meta="",error=false}){
+   const panel=$("modelTestPanel");
+   panel.hidden=false;
+   $("modelTestTitle").textContent=title||"Model connection test";
+   $("modelTestBadge").textContent=status;
+   $("modelTestBadge").className="mg-pill "+(error?"bad":status==="Connected"?"good":"warn");
+   $("modelTestText").textContent=text||"—";
+   $("modelTestMeta").textContent=meta;
+   panel.scrollIntoView({behavior:"smooth",block:"nearest"});
+ }
+
  const providerPresets={
    openrouter:{
      id:"openrouter_free",name:"OpenRouter Free",
@@ -59,7 +70,7 @@
       '<small>'+safe(m.id)+' · '+safe(m.remote_model_id)+' · '+safe(m.provider)+'</small>'+
       '<small class="mg-break">'+safe(m.endpoint)+' · secret reference '+safe(m.secret_ref)+'</small></div>'+
       '<div class="mg-row-actions"><button class="mg-btn small" data-action="edit">Edit</button>'+
-      '<button class="mg-btn small" data-action="test" '+(!available||m.provider==="image_generation"?'disabled title="Currently available for configured text models only"':'')+'>Test</button>'+
+      '<button class="mg-btn small" data-action="test" '+(m.provider==="image_generation"?'disabled title="Image-model test is not yet supported"':'')+'>Test</button>'+
       '<button class="mg-btn small" data-action="default" '+(m.is_default||!m.enabled?'disabled':'')+'>Set default</button>'+
       '<button class="mg-btn small '+(m.enabled?'danger':'')+'" data-action="toggle">'+(m.enabled?'Disable':'Enable')+'</button></div></article>';
    }).join(""):'<div class="mg-empty">No models registered. Use the form below to add your first provider connection.</div>';
@@ -82,9 +93,46 @@
    try {
      btn.disabled=true;
      if(btn.dataset.action==="test"){
+       if(!m.enabled||!m.secret_configured){
+         const secretEnv="MIMO_SECRET_"+m.secret_ref.toUpperCase().replace(/-/g,"_");
+         showConnectionTest({
+           title:m.display_name+" is not ready",
+           status:"Not configured",
+           error:true,
+           text:!m.enabled
+             ?"This model is disabled. Enable it before testing."
+             :"The backend does not see the "+secretEnv+" environment secret.",
+           meta:"Cloud Run → mimo-backend-git → Variables & Secrets. Attach the provider key as the environment secret "+secretEnv+
+             ", and deploy a new revision. Then refresh this page."
+         });
+         return;
+       }
        if(!confirm("Send a real test request to "+m.display_name+"? It may incur provider charges."))return;
+       btn.textContent="Testing…";
+       showConnectionTest({
+         title:"Testing "+m.display_name,
+         status:"Testing",
+         text:"Contacting the configured AI provider…",
+         meta:"Model: "+m.remote_model_id+" · This is a real, potentially billable call."
+       });
        const result=await MimoSite.api("/v1/models/"+encodeURIComponent(m.id)+"/test",{method:"POST"});
-       message("Connection test succeeded. Estimated cost: "+MimoSite.currency(result.cost_usd));
+       const reply=String(result?.text??"").trim();
+       if(!result?.ok||!reply){
+         throw Error("Provider test returned no visible text. Check the server response and completion-token allowance.");
+       }
+       const usage=result.usage||{};
+       const cost=Number(result.cost_usd||0);
+       showConnectionTest({
+         title:m.display_name+" replied",
+         status:"Connected",
+         text:reply,
+         meta:"Model: "+m.remote_model_id+
+           " · Tokens: "+(usage.total_tokens??"not reported")+
+           " (output "+(usage.output_tokens??"not reported")+")"+
+           " · Estimated cost: "+(Number.isFinite(cost)?"$"+cost.toFixed(6):"unavailable")+
+           (result.finish_reason?" · Finish: "+result.finish_reason:"")
+       });
+       message(m.display_name+" replied successfully.");
      }
      if(btn.dataset.action==="default"){
        await MimoSite.api("/v1/models/"+encodeURIComponent(m.id)+"/default",{method:"POST"});
@@ -95,7 +143,16 @@
        await MimoSite.api("/v1/models/"+encodeURIComponent(m.id)+(m.enabled?"/disable":""),{method:m.enabled?"POST":"PATCH",...(m.enabled?{}:{body:{enabled:true}})});
        message("Model status updated.");await refresh();
      }
-   }catch(error){message(error.message,true)}finally{btn.disabled=false}
+   }catch(error){
+     if(btn.dataset.action==="test"){
+       showConnectionTest({
+         title:m.display_name+" connection failed",status:"Failed",error:true,
+         text:error.message,
+         meta:"Confirm the Groq key is referenced in Cloud Run as MIMO_SECRET_GROQ and inspect the backend logs if the provider returns an error."
+       });
+     }
+     message(error.message,true);
+   }finally{btn.disabled=false;if(btn.dataset.action==="test")btn.textContent="Test";}
  });
  $("modelForm").addEventListener("submit",async e=>{
    e.preventDefault();if(busy)return;

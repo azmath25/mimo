@@ -6,6 +6,16 @@
 <button type="button" id="newModel" class="mg-btn">+ Register model</button></section>
 <div class="mg-alert warn"><strong>Provider keys stay in Secret Manager.</strong> First add a provider API key to Google Secret Manager, then expose it to your <em>mimo-backend-git</em> Cloud Run service as an environment secret named <code>MIMO_SECRET_YOUR_REFERENCE</code>. Enter only the reference name below, never the API key. Redeploy Cloud Run after adding it. <a href="https://console.cloud.google.com/security/secret-manager?project=mimo-backend-513412" target="_blank" rel="noopener noreferrer">Open Secret Manager ↗</a></div>
 <div class="mg-section"><h2>Model registry</h2><button class="mg-btn small" id="reloadModels">↻ Refresh</button></div>
+<p class="mg-hint">Click <strong>Test</strong> on any connected text model to see its actual response, usage and errors immediately below.</p>
+<section class="mg-card" id="modelTestPanel" hidden style="margin-bottom:15px" role="status" aria-live="polite">
+ <div class="mg-section" style="margin:0 0 12px">
+   <h2 id="modelTestTitle">Model connection test</h2>
+   <span id="modelTestBadge" class="mg-pill">Pending</span>
+ </div>
+ <p id="modelTestMeta" class="mg-hint">The actual provider reply will appear here.</p>
+ <div class="mg-stat" style="margin-top:12px">ACTUAL MODEL RESPONSE</div>
+ <pre class="mg-pre" id="modelTestText" style="margin:9px 0 0">—</pre>
+</section>
 <div id="modelList" class="mg-list"><div class="mg-empty">Loading registered models…</div></div>
 <div class="mg-section"><h2 id="modelFormTitle">Register a model</h2><span class="mg-hint">OpenAI-compatible text or image generation</span></div>
 <section class="mg-card"><form id="modelForm">
