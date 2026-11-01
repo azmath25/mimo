@@ -70,7 +70,7 @@
       '<small>'+safe(m.id)+' · '+safe(m.remote_model_id)+' · '+safe(m.provider)+'</small>'+
       '<small class="mg-break">'+safe(m.endpoint)+' · secret reference '+safe(m.secret_ref)+'</small></div>'+
       '<div class="mg-row-actions"><button class="mg-btn small" data-action="edit">Edit</button>'+
-      '<button class="mg-btn small" data-action="test" '+(!available||m.provider==="image_generation"?'disabled title="Currently available for configured text models only"':'')+'>Test</button>'+
+      '<button class="mg-btn small" data-action="test" '+(m.provider==="image_generation"?'disabled title="Image-model test is not yet supported"':'')+'>Test</button>'+
       '<button class="mg-btn small" data-action="default" '+(m.is_default||!m.enabled?'disabled':'')+'>Set default</button>'+
       '<button class="mg-btn small '+(m.enabled?'danger':'')+'" data-action="toggle">'+(m.enabled?'Disable':'Enable')+'</button></div></article>';
    }).join(""):'<div class="mg-empty">No models registered. Use the form below to add your first provider connection.</div>';
@@ -93,6 +93,20 @@
    try {
      btn.disabled=true;
      if(btn.dataset.action==="test"){
+       if(!m.enabled||!m.secret_configured){
+         const secretEnv="MIMO_SECRET_"+m.secret_ref.toUpperCase().replace(/-/g,"_");
+         showConnectionTest({
+           title:m.display_name+" is not ready",
+           status:"Not configured",
+           error:true,
+           text:!m.enabled
+             ?"This model is disabled. Enable it before testing."
+             :"The backend does not see the "+secretEnv+" environment secret.",
+           meta:"Cloud Run → mimo-backend-git → Variables & Secrets. Attach the provider key as the environment secret "+secretEnv+
+             ", and deploy a new revision. Then refresh this page."
+         });
+         return;
+       }
        if(!confirm("Send a real test request to "+m.display_name+"? It may incur provider charges."))return;
        btn.textContent="Testing…";
        showConnectionTest({
