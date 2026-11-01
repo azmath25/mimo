@@ -39,8 +39,7 @@
         config.max_tokens = Number.isInteger(budget) && budget >= 64 && budget <= 16384 ? budget : 1024;
         config.response = {kind: n.output === "image" ? "image" : "text", delivery: "complete"};
       } else if (type === "tool") {
-        config.tool = ({uppercase: "upper", lowercase: "lowercase", lowercase_unused: "lower", trim: "trim", replace: "replace", "json-field": "json_field"})[n.toolKind] || String(n.toolKind || "unsupported");
-        if (config.tool === "lowercase") config.tool = "lower";
+        config.tool = ({uppercase: "upper", lowercase: "lower", trim: "trim", replace: "replace", "json-field": "json_field"})[n.toolKind] || String(n.toolKind || "unsupported");
         config.input = "{{inputs.1}}";
         if (n.toolKind === "replace") {config.find = n.toolFind || ""; config.replacement = n.toolReplacement || "";}
         if (n.toolKind === "json-field") config.field = n.toolField || "";
@@ -114,6 +113,14 @@
       }
       if(type==="output" && !reachable.has(n.id)){
         errors.push("Output ‘"+n.name+"’ cannot be reached from an Input block.");
+      }
+      if (type !== "input" && type !== "output") {
+        if (n.source && n.source !== "connected")
+          errors.push("Input source " + n.source + " for " + n.name + " is not yet supported in cloud.");
+        if (n.combine && n.combine !== "all")
+          errors.push("Input combination " + n.combine + " for " + n.name + " is not yet supported in cloud.");
+        if (n.includeWorkflowGuide)
+          errors.push("Workflow guide injection is not yet supported in cloud for " + n.name + ".");
       }
       if (type === "ai" && !asArray(models).some(m=>m.id === resolveModel(n, models) && m.enabled)) {
         errors.push("Configure an enabled backend model for ‘" + n.name + "’ before cloud execution.");
