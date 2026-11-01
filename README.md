@@ -1,6 +1,6 @@
 # Mimo Studio — Cloud-connected frontend
 
-**Preview:** `index.html` preserves the v3.3 workflow canvas and block builder, and adds Firebase administrator login, cloud draft sync, and cloud execution.
+**Preview:** `index.html` preserves the v3.3 workflow canvas and block builder, and adds Firebase administrator login, cloud draft sync, and cloud execution. The UX upgrade also adds a runnable cloud starter workflow, run-readiness checks, keyboard saving, and per-administrator local recovery after accidental tab closure.
 
 ## Services
 
@@ -31,9 +31,13 @@
 - **Save:** writes a browser backup first, then a cloud draft to Neon. A failure is shown explicitly, never disguised as success.
 - **Open:** lists cloud drafts and opens them from the backend. JSON import/export stays supported.
 - **Preview:** keeps the original local, non-AI simulator, including unsupported tools.
+- **Workflow checks:** the Check dialog explains unsupported cloud blocks, disconnected nodes and missing AI models before executing.
+- **Quick start:** the sidebar includes a text → uppercase → output workflow runnable without AI provider keys.
+- **Recovery:** an 800ms local autosave (scoped to the signed-in UID) offers restoration of unsaved edits; Cmd/Ctrl+S saves the current workflow. Recovery is local, not a substitute for cloud saving.
 - **Run in cloud:** uses the authenticated `POST /v1/workflows/execute` endpoint and displays real node results. Currently works for the backend's allowed text tools and configured models.
 - **AI model setup:** Cloud Run does not itself supply API keys or models. Models must be added to the backend registry, with secret references; don't store keys in HTML.
 - **Unsupported operations:** v3.3's numeric condition operators, TikZ compiler integration, trim/replace/json-field local tools, and binary file uploads are **preview-only** until backend capabilities are added. The Run action clearly blocks unsupported workflows rather than simulating success.
+- **Real results:** the inspector distinguishes actual cloud results from Preview simulations and supports cloud output-bundle exports.
 - **Limit:** The direct `execute` endpoint returns a completed result but does not create a persisted run record. Published workflow/job execution uses separate backend APIs.
 - **Admin-only access:** The page hides behind Firebase sign-in, and each backend request contains a fresh ID token. The public Firebase web config is not a secret. Backend authorization, not UI hiding, enforces access.
 - **Not yet supported:** Reusable block libraries are still browser-local, and `index.html` is a single-file canvas pending modularization.
