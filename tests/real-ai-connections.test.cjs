@@ -18,7 +18,7 @@ test("Studio has live multi-agent starter and registered model dropdown",()=>{
   const html=fs.readFileSync("studio.html","utf8");
   assert.match(html,/id="quickAIWorkflow"/);
   assert.match(html,/function quickAIWorkflow\(/);
-  assert.match(html,/model\.secret_configured/);
+  assert.match(html,/m\.secret_configured/);
   assert.match(html,/nodeCloudModel/);
   assert.match(html,/Proofread the mathematical statement/);
   assert.match(html,/cloudModels\.filter/);
