@@ -3,7 +3,7 @@
   "use strict";
   const $=id=>document.getElementById(id),safe=()=>MimoSite.safe;
   const studioOrigin="https://mimo-backend-git-993130348924.europe-west1.run.app";
-  let projects=[],workflows=[],versions=new Map(),newKey=null,requestExample="",endpoint="",loaded=false;
+  let projects=[],workflows=[],versions=new Map(),newKey=null,requestExample="",endpoint="",loadedUid=null;
   const msg=(id,text,error=false)=>MimoSite.notice(id,text,error);
   function metadataKey(){const uid=window.MimoCloud?.user?.uid;return uid?"mimo.projects.v1."+uid:null}
   function restoreProjects(){
@@ -132,7 +132,13 @@
     }catch(error){msg("revokeFeedback",error.message,true)}
     finally{$("revokeProjectBtn").disabled=false}
   });
+  window.addEventListener("mimo:auth-changed",()=>{
+    if(!MimoSite.requireCloud()){setKey(null);projects=[];loadedUid=null}
+  });
   MimoSite.whenReady(async()=>{
-    if(loaded)return;loaded=true;restoreProjects();await loadWorkflows();
+    const uid=window.MimoCloud.user.uid;
+    if(loadedUid===uid)return;
+    loadedUid=uid;setKey(null);projects=[];versions.clear();
+    restoreProjects();await loadWorkflows();
   });
 })();
