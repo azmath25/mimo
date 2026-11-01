@@ -282,11 +282,12 @@ const BASE={
  spark:{name:'AI assistant',subtitle:'A thoughtful collaborator',icon:'spark',prompt:'Read all supplied materials and complete the requested task carefully. State clearly what was done.',output:'text',accept:FMT,source:'connected'}
 };
 const TYPES={...BASE};
-const state={nodes:[],edges:[],seq:0,selected:null,selectedEdge:null,tab:'edit',scale:1,tx:0,ty:0,connecting:null,moving:null,running:false,runStatus:{},results:{},lastRun:null,custom:{},savedFlows:[],flowId:null,builderEditing:null,workflowGoal:'Turn mathematical source material into accurate, checked and reusable results. Route by confidence, use tools where possible, and collect the selected outputs.',initial:{format:'text',text:'A geometry problem with a figure. Extract the statement, reconstruct the diagram and proofread the result.',fileName:''},initialFile:null,view:'workflow'};
+const state={nodes:[],edges:[],seq:0,selected:null,selectedEdge:null,tab:'edit',scale:1,tx:0,ty:0,connecting:null,moving:null,running:false,runStatus:{},results:{},lastRun:null,lastRunKind:null,currentCloud:false,custom:{},savedFlows:[],flowId:null,builderEditing:null,workflowGoal:'Turn mathematical source material into accurate, checked and reusable results. Route by confidence, use tools where possible, and collect the selected outputs.',initial:{format:'text',text:'A geometry problem with a figure. Extract the statement, reconstruct the diagram and proofread the result.',fileName:''},initialFile:null,view:'workflow'};
 const N=$('#nodes'),P=$('#edgePaths'),workspace=$('#workspace'),canvas=$('#canvas'),world=$('#world'),panel=$('#inspectorContent');
 const storage=(key,content)=>{try{if(content===undefined)return JSON.parse(localStorage.getItem(key)||'null');localStorage.setItem(key,JSON.stringify(content));return true}catch(err){return false}};
 const customKey='mimo.blocks.v2',workflowKey='mimo.flows.v2';
 let cloudModels=[];
+let lastSavedSignature=null,savedLocation='new',recoveryTimer=null,pendingRecovery=null;
 const string=(v,max=3000)=>typeof v==='string'?v.slice(0,max):'';
 function unique(){return 'c_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8)}
 function typeInfo(t){return TYPES[t]||TYPES.blank}
@@ -500,7 +501,22 @@ function selectedToTemplate(){const n=node(state.selected);if(!n||['input','outp
 function downloadJSON(data,filename){const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename.replace(/[^a-zA-Z0-9._-]/g,'_');document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1200)}
 function blockJSON(t){return {kind:'mimo/block',version:4,block:{...t}}}
 function workflowJSON(){const withCustom={};state.nodes.forEach(n=>{if(state.custom[n.type])withCustom[n.type]=state.custom[n.type]});return {kind:'mimo/workflow',version:4,name:$('#workflowTitle').value||'My workflow',nodes:state.nodes.map(n=>({...n,accept:[...n.accept]})),edges:state.edges.map(e=>({...e})),customBlocks:withCustom,initialInput:{format:state.initial.format,text:state.initial.text,fileName:state.initialFile?'':state.initial.fileName},workflowGoal:state.workflowGoal,note:'Binary files are not embedded. Re-select local files after importing.'}}
-function newWorkflow(){if(state.running)return;closeDialog('flowsDialog');state.nodes=[];state.edges=[];state.seq=0;state.selected=null;state.selectedEdge=null;state.flowId=null;state.workflowGoal='';state.initialFile=null;state.initial={format:'text',text:'',fileName:''};state.results={};state.runStatus={};state.lastRun=null;$('#workflowTitle').value='Untitled workflow';const a=makeNode('input',60,220,{name:'Workflow input'}),b=makeNode('output',620,220,{name:'My outputs'});state.nodes.push(a,b);setView('workflow');renderAll();requestAnimationFrame(()=>{fitView();selectNode(a.id)});toast('A fresh workflow is ready ✳')}
+function newWorkflow(){if(state.running||!confirmDiscardEdits())return;closeDialog('flowsDialog');state.nodes=[];state.edges=[];state.seq=0;state.selected=null;state.selectedEdge=null;state.flowId=null;state.currentCloud=false;state.workflowGoal='';state.initialFile=null;state.initial={format:'text',text:'',fileName:''};state.results={};state.runStatus={};state.lastRun=null;$('#workflowTitle').value='Untitled workflow';const a=makeNode('input',60,220,{name:'Workflow input'}),b=makeNode('output',620,220,{name:'My outputs'});state.nodes.push(a,b);setView('workflow');renderAll();requestAnimationFrame(()=>{fitView();selectNode(a.id)});toast('A fresh workflow is ready ✳');lastSavedSignature=null;savedLocation='new';updateDraftStatus()}
+function quickStartWorkflow(){
+  if(state.running||!confirmDiscardEdits())return;
+  state.nodes=[];state.edges=[];state.seq=0;state.selected=null;state.selectedEdge=null;
+  state.flowId=null;state.currentCloud=false;state.workflowGoal='Turn a text prompt into uppercase using the real cloud tool.';
+  state.initialFile=null;state.initial={format:'text',text:'Mimo is connected to the cloud!',fileName:''};
+  state.results={};state.runStatus={};state.lastRun=null;state.lastRunKind=null;
+  $('#workflowTitle').value='My first cloud workflow';
+  const input=makeNode('input',65,170,{name:'Source text'});
+  const transform=makeNode('tool',385,170,{name:'Uppercase',toolKind:'uppercase',execution:'tool',output:'text'});
+  const output=makeNode('output',705,170,{name:'Cloud results'});
+  state.nodes.push(input,transform,output);
+  state.edges.push({from:input.id,to:transform.id},{from:transform.id,to:output.id});
+  setView('workflow');renderAll();requestAnimationFrame(()=>{fitView();selectNode(input.id)});
+  lastSavedSignature=null;savedLocation='new';updateDraftStatus();toast('Cloud starter ready — select Run in cloud ✳');
+}
 async function refreshCloudList() {
   if(!window.MimoCloud?.authorized)return;
   try {
@@ -513,6 +529,7 @@ async function refreshCloudList() {
     const ids=new Set(cloudRows.map(row=>row.id));
     state.savedFlows=[...cloudRows,...state.savedFlows.filter(row=>!ids.has(row.id) && !row.cloud)].slice(0,150);
     storage(workflowKey,state.savedFlows);
+    if(state.flowId&&ids.has(state.flowId))state.currentCloud=true;
     renderFlowList();
   } catch(e){toast('Cloud archive unavailable: '+e.message);}
 }
@@ -522,35 +539,36 @@ async function refreshCloudModels() {
   catch(e){cloudModels=[];toast('Model registry unavailable: '+e.message);}
 }
 window.addEventListener('mimo:auth-changed',()=>{
-  if(window.MimoCloud?.authorized){refreshCloudList();refreshCloudModels()}
-  else cloudModels=[];
+  if(window.MimoCloud?.authorized){refreshCloudList();refreshCloudModels();showDraftRecovery()}
+  else {cloudModels=[];$('#draftRecovery').hidden=true;}
 });
 async function saveWorkflow(){
   if(state.running)return;
   const flow=workflowJSON(),id=state.flowId||unique(),i=state.savedFlows.findIndex(x=>x.id===id);
   const existing=i>=0?state.savedFlows[i]:null;
-  const row={id,name:flow.name,updated:new Date().toISOString(),data:flow,cloud:existing?.cloud===true};
+  const row={id,name:flow.name,updated:new Date().toISOString(),data:flow,cloud:existing?.cloud===true||state.currentCloud===true};
   if(i>=0)state.savedFlows[i]=row;else state.savedFlows.unshift(row);
   state.flowId=id;
   const localOk=storage(workflowKey,state.savedFlows);
   renderFlowList();
-  if(!window.MimoCloud?.authorized){toast(localOk?'Saved locally; sign in to sync with Neon.':'Browser storage unavailable; download JSON for backup.');return}
+  if(!window.MimoCloud?.authorized){markSaved('local');toast(localOk?'Saved locally; sign in to sync with Neon.':'Browser storage unavailable; download JSON for backup.');return}
   try {
     const payload=window.MimoBridge.toBackend(flow,id,cloudModels);
     await window.MimoCloud.request(row.cloud?'/v1/workflows/'+encodeURIComponent(id):'/v1/workflows',
       {method:row.cloud?'PATCH':'POST',body:payload});
-    row.cloud=true;
-    storage(workflowKey,state.savedFlows);
+    row.cloud=true;state.currentCloud=true;
+    storage(workflowKey,state.savedFlows);markSaved('cloud');
     toast('Workflow saved to Neon ♡');
     await refreshCloudList();
   } catch(e) {
+    lastSavedSignature=null;savedLocation='local';updateDraftStatus();saveDraftLocally(false);
     toast('Saved locally, but cloud save failed: '+e.message);
   }
 }
 function renderFlowList(){
   $('#savedFlowsList').innerHTML=state.savedFlows.length?state.savedFlows.map(v=>`<div class="saved-entry" data-flow="${safe(v.id)}"><div class="meta"><strong>${safe(v.name)}</strong><small>${v.cloud?'☁ Neon cloud':'◫ Local backup'} · ${safe(new Date(v.updated).toLocaleString())}</small></div><button data-flow-act="load">Open</button><button data-flow-act="export">↓</button><button data-flow-act="delete">×</button></div>`).join(''):'<p class="hint-empty">No workflows yet. Click Save to create your first cloud draft.</p>';
 }
-function openDialog(id){if(id==='guideDialog')refreshGuide();if(id==='inputDialog'){populateInputDialog()}if(id==='flowsDialog')renderFlowList();$('#'+id).hidden=false;if(id==='guideDialog')refreshGuide()}
+function openDialog(id){if(id==='guideDialog')refreshGuide();if(id==='inputDialog'){populateInputDialog()}if(id==='flowsDialog')renderFlowList();if(id==='checkDialog')renderCloudReadiness();$('#'+id).hidden=false;if(id==='guideDialog')refreshGuide()}
 function closeDialog(id){$('#'+id).hidden=true}
 function populateInputDialog(){$('#initialFormat').value=state.initial.format;$('#initialText').value=state.initial.text||'';$('#initialFile').value='';$('#inputFileHint').textContent=state.initialFile?`Current file: ${state.initialFile.name}. Choose a new one to replace it.`:state.initial.fileName?`Previous file: ${state.initial.fileName}. Re-select it to make its data available.`:'Files stay in this browser session; binary data is not included in workflow JSON.'}
 function applyInput(){const oldFormat=state.initial.format;const file=$('#initialFile').files[0];state.initial={format:$('#initialFormat').value,text:$('#initialText').value,fileName:file?file.name:(state.initialFile?state.initialFile.name:'')};if(file){state.initialFile=file;state.initial.format=file.type.startsWith('image/')?'image':['text/plain','text/markdown'].includes(file.type)?'text':'document'}else if(oldFormat!==state.initial.format){state.initialFile=null;state.initial.fileName=''}closeDialog('inputDialog');renderAll();toast('Input updated for all Input blocks ♡')}
@@ -559,7 +577,7 @@ function applyWorkflow(data,keepId=null){const r=data?.kind==='mimo/workflow'?da
 const ids=new Set(),nodes=[];r.nodes.forEach(raw=>{const n=sanitizeNode(raw);if(n&&!ids.has(n.id)){ids.add(n.id);nodes.push(n)}});const edges=[],used=new Set();for(const e of r.edges){if(!e||!ids.has(e.from)||!ids.has(e.to)||e.from===e.to)continue;const a=nodes.find(n=>n.id===e.from),b=nodes.find(n=>n.id===e.to),key=e.from+'>'+e.to+':'+(e.branchId||'');if(executionOf(a)==='condition'&&!cleanBranches(a.branches).some(v=>v.id===e.branchId))continue;if(a.type==='output'||b.type==='input'||used.has(key))continue;used.add(key);edges.push({from:e.from,to:e.to,...(e.branchId?{branchId:e.branchId}:{})})}
 // Strip cyclic imported connections, rather than allowing an un-runnable graph.
 const accepted=[],reaches=(start,goal)=>{const seen=new Set(),stack=[start];while(stack.length){const at=stack.pop();if(at===goal)return true;if(seen.has(at))continue;seen.add(at);accepted.filter(v=>v.from===at).forEach(v=>stack.push(v.to))}return false};edges.forEach(e=>{if(!reaches(e.to,e.from))accepted.push(e)});
-state.nodes=nodes;state.edges=accepted;state.seq=Math.max(0,...nodes.map(n=>+n.id.match(/^b(\d+)$/)?.[1]||0));state.selected=null;state.selectedEdge=null;state.runStatus={};state.results={};state.lastRun=null;state.flowId=keepId;state.workflowGoal=string(r.workflowGoal,6000);state.initialFile=null;state.initial={format:FMT.includes(r.initialInput?.format)?r.initialInput.format:'text',text:string(r.initialInput?.text,100000),fileName:string(r.initialInput?.fileName,180)};$('#workflowTitle').value=string(r.name,60)||'Imported workflow';setView('workflow');renderAll();requestAnimationFrame(fitView);toast('Workflow imported ♡')}
+state.nodes=nodes;state.edges=accepted;state.seq=Math.max(0,...nodes.map(n=>+n.id.match(/^b(\d+)$/)?.[1]||0));state.selected=null;state.selectedEdge=null;state.runStatus={};state.results={};state.lastRun=null;state.flowId=keepId;state.currentCloud=!!keepId&&state.savedFlows.some(v=>v.id===keepId&&v.cloud);state.workflowGoal=string(r.workflowGoal,6000);state.initialFile=null;state.initial={format:FMT.includes(r.initialInput?.format)?r.initialInput.format:'text',text:string(r.initialInput?.text,100000),fileName:string(r.initialInput?.fileName,180)};$('#workflowTitle').value=string(r.name,60)||'Imported workflow';setView('workflow');renderAll();requestAnimationFrame(fitView);toast('Workflow imported ♡');lastSavedSignature=null;savedLocation='new';updateDraftStatus()}
 function importBlockObject(obj){const r=obj?.kind==='mimo/block'?obj.block:obj?.block||obj;if(!r||typeof r!=='object'||Array.isArray(r)||!r.name||typeof r.name!=='string')throw Error('That file does not contain a reusable block.');const id=unique(),t=sanitizeBlock(r,id);state.custom[id]=t;refreshTypes();storage(customKey,state.custom);buildTemplates();renderBuilderSaved();toast('Block imported to your library ♡');return t}
 async function readJSON(file,handler){if(!file)return;if(file.size>3*1024*1024){toast('JSON must be under 3 MB.');return}try{const obj=JSON.parse(await file.text());handler(obj)}catch(e){toast('Could not import JSON: '+(e.message||'Invalid file'))}}
 function renderBuilderSaved(){$('#builderSavedList').innerHTML=Object.entries(state.custom).length?Object.entries(state.custom).map(([id,t])=>`<div class="saved-entry" data-block-id="${safe(id)}"><span class="template-icon" style="width:34px;height:34px">${icon(t.icon,16)}</span><span class="meta"><strong>${safe(t.name)}</strong><small>${t.execution==='condition'?t.branches.length+' branches · '+(t.conditionMode==='ai'?'AI':'rule'):t.execution==='tool'?'No AI · '+safe(TOOLS[t.toolKind]):safe(t.provider)+' · '+safe(t.model)}</small></span><button data-block-act="edit">Edit</button><button data-block-act="export">↓</button><button data-block-act="delete">×</button></div>`).join(''):'<div class="hint-empty">No custom blocks yet. Create your first little worker here.</div>'}
@@ -587,8 +605,8 @@ P.addEventListener('keydown',e=>{const remove=e.target.closest('.edge-delete');i
 // Inline editing in the inspector: do not destroy focus while typing.
 panel.addEventListener('input',e=>{const n=node(state.selected);if(!n)return;const map={nodeName:'name',nodeSummary:'summary',nodePrompt:'prompt',nodeCustomModel:'model',nodeConditionField:'conditionField',nodeCompilerEndpoint:'compilerEndpoint',nodeToolField:'toolField',nodeToolFind:'toolFind',nodeToolReplacement:'toolReplacement'};const key=map[e.target.id];if(key){n[key]=e.target.value;renderNodes();renderSide();if(key==='prompt')refreshPromptPreview();return}if(e.target.dataset.branchLabel!==undefined){const i=+e.target.dataset.branchLabel;n.branches[i].label=e.target.value;renderNodes();renderEdges();return}if(e.target.dataset.branchValue!==undefined){n.branches[+e.target.dataset.branchValue].value=e.target.value}});
 panel.addEventListener('change',e=>{const n=node(state.selected);if(!n)return;const t=e.target;if(t.dataset.collect){const from=t.dataset.collect,to=n.id,branchId=t.dataset.branch||null;if(t.checked)addEdge(from,to,branchId);else{state.edges=state.edges.filter(e=>!(e.from===from&&e.to===to&&(e.branchId||null)===branchId));renderAll()}return}if(t.dataset.branchOp!==undefined){n.branches[+t.dataset.branchOp].op=t.value;renderNodes();return}if(t.id==='nodeUseGuide'){n.includeWorkflowGuide=t.checked;renderInspector();refreshGuide();return}if(t.id==='nodeConditionMode'){n.conditionMode=t.value;renderAll();return}if(t.id==='nodeBranchCount'){n.branches=resizeBranches(n.branches,+t.value);const valid=new Set(n.branches.map(b=>b.id));state.edges=state.edges.filter(e=>e.from!==n.id||valid.has(e.branchId));renderAll();return}if(t.id==='nodeAIDemoBranch'){n.aiDemoBranch=t.value;return}if(t.id==='nodeToolKind'){n.toolKind=t.value;n.output=t.value==='tikz'?'document':'text';renderAll();return}if(t.id==='nodeToolEngine'){n.toolEngine=t.value;renderAll();return}if(t.id==='nodeCompilerTarget'){n.compilerTarget=t.value;n.output=t.value==='pdf'?'document':'image';renderAll();return}if(t.dataset.accept){if(t.checked&&!n.accept.includes(t.dataset.accept))n.accept.push(t.dataset.accept);if(!t.checked)n.accept=n.accept.filter(v=>v!==t.dataset.accept);renderAll();return}if(t.id==='nodeProvider'){n.provider=t.value;n.model=MODELS[t.value]?.[0]||'';renderAll();return}if(t.id==='nodeModel'){n.model=t.value==='__custom'?'':t.value;renderAll();return}const map={inputSource:'source',inputCombine:'combine',nodeOutput:'output',nodeReport:'report',nodeRequired:'required'};if(map[t.id])updateSelected(map[t.id],t.type==='checkbox'?t.checked:t.value)});
-panel.addEventListener('click',e=>{const insert=e.target.closest('[data-insert-token]');if(insert){insertPromptToken(insert.dataset.insertTarget,insert.dataset.insertToken);return}const b=e.target.closest('[data-act]');if(!b)return;switch(b.dataset.act){case 'duplicate':duplicateSelected();break;case 'delete':case 'removeEdge':deleteSelected();break;case 'removeEdgeIndex':removeEdge(Number(b.dataset.edgeIndex));break;case 'run':simulate();break;case 'saveTemplate':saveSelectedAsBlock();break;case 'exportNode':{const t=selectedToTemplate();if(t)downloadJSON(blockJSON(t),(t.name||'my-block')+'.block.json');break}case 'editInitial':openDialog('inputDialog');break;case 'viewGuide':openDialog('guideDialog');break;case 'exportCollected':{const n=node(state.selected),r=state.results[n?.id];if(r){const output={kind:'mimo/output',version:2,workflow:$('#workflowTitle').value,collector:n.name,simulated:true,outputs:r.data.map(v=>({id:v.id,name:v.name,format:v.result?.format,task:v.result?.task,branchId:v.branchId||null,content:v.result?.data?.demo?'SIMULATED / COMPILER PREVIEW':v.result?.data?.text||v.result?.data?.fileName||null}))};downloadJSON(output,n.name+'.output.json')}break}}});
-window.addEventListener('keydown',e=>{if(!$('#inputDialog').hidden||!$('#flowsDialog').hidden||!$('#guideDialog').hidden){if(e.key==='Escape'){$$('.dialog-backdrop').forEach(x=>x.hidden=true)}return}if(e.target.closest('input,textarea,select,button')||e.target.isContentEditable)return;if(e.key==='Escape'){clearDraft();state.selected=null;state.selectedEdge=null;renderSelection();renderInspector()}if(e.key==='Delete'||e.key==='Backspace')deleteSelected();if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='d'&&state.selected){e.preventDefault();duplicateSelected()}});
+panel.addEventListener('click',e=>{const insert=e.target.closest('[data-insert-token]');if(insert){insertPromptToken(insert.dataset.insertTarget,insert.dataset.insertToken);return}const b=e.target.closest('[data-act]');if(!b)return;switch(b.dataset.act){case 'duplicate':duplicateSelected();break;case 'delete':case 'removeEdge':deleteSelected();break;case 'removeEdgeIndex':removeEdge(Number(b.dataset.edgeIndex));break;case 'run':runCloud();break;case 'preview':simulate();break;case 'saveTemplate':saveSelectedAsBlock();break;case 'exportNode':{const t=selectedToTemplate();if(t)downloadJSON(blockJSON(t),(t.name||'my-block')+'.block.json');break}case 'editInitial':openDialog('inputDialog');break;case 'viewGuide':openDialog('guideDialog');break;case 'exportCollected':{const n=node(state.selected),r=state.results[n?.id];if(r){const output={kind:'mimo/output',version:2,workflow:$('#workflowTitle').value,collector:n.name,simulated:state.lastRunKind!=='cloud',outputs:r.data.map(v=>({id:v.id,name:v.name,format:v.result?.format,task:v.result?.task,branchId:v.branchId||null,content:v.result?.data?.demo?'SIMULATED / COMPILER PREVIEW':v.result?.data?.text||v.result?.data?.fileName||null}))};downloadJSON(output,n.name+'.output.json')}break}}});
+window.addEventListener('keydown',e=>{if($('.dialog-backdrop').some(dialog=>!dialog.hidden)){if(e.key==='Escape'){$$('.dialog-backdrop').forEach(x=>x.hidden=true)}return}if(e.target.closest('input,textarea,select,button')||e.target.isContentEditable)return;if(e.key==='Escape'){clearDraft();state.selected=null;state.selectedEdge=null;renderSelection();renderInspector()}if(e.key==='Delete'||e.key==='Backspace')deleteSelected();if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='d'&&state.selected){e.preventDefault();duplicateSelected()}});
 const sleep=t=>new Promise(r=>setTimeout(r,t));
 function resultText(r){if(!r)return '';const d=r.data;if(typeof d==='string')return d;if(d?.text!==undefined)return String(d.text);if(d?.original)return resultText({data:d.original});if(d?.fileName)return d.fileName;return ''}
 function getPath(obj,key){if(!key?.trim())return obj;return key.split('.').reduce((v,k)=>v!=null?v[k]:undefined,obj)}
@@ -596,8 +614,8 @@ function numericForCondition(n,r){const str=resultText(r).trim();let parsed;try{
 function compareValue(value,op,threshold){const v=Number(threshold);if(!Number.isFinite(value)||!Number.isFinite(v))return false;switch(op){case '>':return value>v;case '>=':return value>=v;case '<':return value<v;case '<=':return value<=v;case '==':return value===v;case '!=':return value!==v;default:return false}}
 function runTool(n,source){if(n.toolKind==='tikz')return {format:n.output,task:`Would submit source to ${n.toolEngine} via ${n.compilerEndpoint||'/api/compile/tikz'} and collect ${n.compilerTarget||'pdf'}. No compiler is connected.`,data:{demo:true,tool:'tikz',engine:n.toolEngine,target:n.compilerTarget||'pdf',endpoint:n.compilerEndpoint||'/api/compile/tikz',status:'compiler not connected',sourcePreview:resultText(source).slice(0,500)}};const input=resultText(source);let value=input;try{switch(n.toolKind){case 'trim':value=input.trim();break;case 'uppercase':value=input.toUpperCase();break;case 'lowercase':value=input.toLowerCase();break;case 'replace':value=n.toolFind?input.split(n.toolFind).join(n.toolReplacement||''):input;break;case 'json-field':{const parsed=JSON.parse(input);const extracted=getPath(parsed,n.toolField);if(extracted===undefined)throw Error('Field not found: '+n.toolField);value=typeof extracted==='string'?extracted:JSON.stringify(extracted);break}}}catch(e){return {format:n.output,task:'Tool failed: '+e.message,data:{error:true,text:input}}}return {format:n.output,task:'Ran '+TOOLS[n.toolKind]+' locally without AI.',data:{text:String(value),actual:true}}}
 function activeInputs(n){return state.edges.filter(e=>e.to===n.id).filter(e=>{const r=state.results[e.from];if(!r||state.runStatus[e.from]!=='done')return false;const a=node(e.from);return executionOf(a)!=='condition'||r.data?.chosenBranchId===e.branchId}).map(e=>({edge:e,from:node(e.from),result:state.results[e.from]}))}
-async function simulate(){if(state.running)return;const invalid=state.nodes.filter(n=>inputRule(n).invalid);if(invalid.length){selectNode(invalid[0].id);toast('Check input rule on '+invalid[0].name);return}const layers=getLayers();if(!layers||!layers.length){toast('Add some blocks to begin.');return}if(state.nodes.some(n=>n.type==='input')&&state.initial.fileName&&!state.initialFile&&!state.initial.text){toast('Re-select the original input file before testing.');openDialog('inputDialog');return}state.running=true;state.results={};state.runStatus={};state.lastRun=null;state.tab='run';setTabs();renderAll();$('#previewButton').disabled=true;$('#previewButton').textContent='Previewing…';for(const ids of layers){const todo=ids.filter(id=>{const n=node(id);return !state.edges.some(e=>e.to===id)||activeInputs(n).length>0});ids.filter(id=>!todo.includes(id)).forEach(id=>state.runStatus[id]='skipped');todo.forEach(id=>state.runStatus[id]='running');renderNodes();renderEdges();renderInspector();if(todo.length)await sleep(220+todo.length*80);for(const id of todo){const n=node(id),ups=activeInputs(n),r0=ups[0]?.result||{format:state.initial.format,data:{...state.initial}},exec=executionOf(n);if(n.type==='input'){state.results[id]={format:state.initial.format,task:'Forwarded the initial input unchanged.',data:{...state.initial,file:state.initialFile?{name:state.initialFile.name,size:state.initialFile.size}:null}}}else if(n.type==='output'){const bundle=ups.map(x=>({id:x.from.id,name:x.from.name,branchId:x.edge.branchId||null,result:x.result}));state.results[id]={format:'collection',task:`Collected ${bundle.length} active result${bundle.length===1?'':'s'}; skipped branches are excluded.`,data:bundle}}else if(exec==='condition'){let chosen=null,value=null,reason='';if(n.conditionMode==='rule'){value=numericForCondition(n,r0);if(Number.isFinite(value)){chosen=n.branches.find(b=>b.op!=='else'&&compareValue(value,b.op,b.value))||n.branches[n.branches.length-1];reason=`Read ${n.conditionField||'input'} = ${value}.` }else reason='Unable to read a finite numeric value. Branching paused.'}else{chosen=n.branches.find(b=>b.id===n.aiDemoBranch)||null;reason=chosen?'Manual demo selection (not an AI decision).':'AI classifier is not connected. Choose a manual demo route in settings.'}const resolved=n.conditionMode==='ai'?renderBlockPrompt(n):null;state.results[id]={format:r0.format,task:reason+(chosen?' Routed to '+chosen.label+'.':''),data:{chosenBranchId:chosen?.id||null,chosenLabel:chosen?.label||'',value,original:r0.data,previewOnly:n.conditionMode==='ai',...(resolved?{promptResolved:resolved.text,promptMissing:resolved.missing}: {})}};if(!chosen){state.runStatus[id]='error';continue}}else if(exec==='tool'){state.results[id]=runTool(n,r0);if(state.results[id].data?.error){state.runStatus[id]='error';continue}}else{const resolved=renderBlockPrompt(n);state.results[id]={format:n.output,task:n.report?`Would call ${n.provider} / ${n.model}: ${n.name}.`:'Task summary disabled.',data:{demo:true,text:'',message:'AI content is not generated in frontend-only mode.',inputs:ups.map(x=>x.from.id),promptResolved:resolved.text,promptMissing:resolved.missing}}}state.runStatus[id]='done'}renderNodes();renderEdges();renderInspector()}
-state.running=false;state.lastRun=new Date();$('#previewButton').disabled=false;$('#previewButton').textContent='◇ Preview';renderNodes();renderEdges();renderInspector();toast('Flow tested — unused routes were skipped ♡')}
+async function simulate(){if(state.running)return;const invalid=state.nodes.filter(n=>inputRule(n).invalid);if(invalid.length){selectNode(invalid[0].id);toast('Check input rule on '+invalid[0].name);return}const layers=getLayers();if(!layers||!layers.length){toast('Add some blocks to begin.');return}if(state.nodes.some(n=>n.type==='input')&&state.initial.fileName&&!state.initialFile&&!state.initial.text){toast('Re-select the original input file before testing.');openDialog('inputDialog');return}state.running=true;state.results={};state.runStatus={};state.lastRun=null;state.lastRunKind=null;state.tab='run';setTabs();renderAll();$('#previewButton').disabled=true;$('#previewButton').textContent='Previewing…';for(const ids of layers){const todo=ids.filter(id=>{const n=node(id);return !state.edges.some(e=>e.to===id)||activeInputs(n).length>0});ids.filter(id=>!todo.includes(id)).forEach(id=>state.runStatus[id]='skipped');todo.forEach(id=>state.runStatus[id]='running');renderNodes();renderEdges();renderInspector();if(todo.length)await sleep(220+todo.length*80);for(const id of todo){const n=node(id),ups=activeInputs(n),r0=ups[0]?.result||{format:state.initial.format,data:{...state.initial}},exec=executionOf(n);if(n.type==='input'){state.results[id]={format:state.initial.format,task:'Forwarded the initial input unchanged.',data:{...state.initial,file:state.initialFile?{name:state.initialFile.name,size:state.initialFile.size}:null}}}else if(n.type==='output'){const bundle=ups.map(x=>({id:x.from.id,name:x.from.name,branchId:x.edge.branchId||null,result:x.result}));state.results[id]={format:'collection',task:`Collected ${bundle.length} active result${bundle.length===1?'':'s'}; skipped branches are excluded.`,data:bundle}}else if(exec==='condition'){let chosen=null,value=null,reason='';if(n.conditionMode==='rule'){value=numericForCondition(n,r0);if(Number.isFinite(value)){chosen=n.branches.find(b=>b.op!=='else'&&compareValue(value,b.op,b.value))||n.branches[n.branches.length-1];reason=`Read ${n.conditionField||'input'} = ${value}.` }else reason='Unable to read a finite numeric value. Branching paused.'}else{chosen=n.branches.find(b=>b.id===n.aiDemoBranch)||null;reason=chosen?'Manual demo selection (not an AI decision).':'AI classifier is not connected. Choose a manual demo route in settings.'}const resolved=n.conditionMode==='ai'?renderBlockPrompt(n):null;state.results[id]={format:r0.format,task:reason+(chosen?' Routed to '+chosen.label+'.':''),data:{chosenBranchId:chosen?.id||null,chosenLabel:chosen?.label||'',value,original:r0.data,previewOnly:n.conditionMode==='ai',...(resolved?{promptResolved:resolved.text,promptMissing:resolved.missing}: {})}};if(!chosen){state.runStatus[id]='error';continue}}else if(exec==='tool'){state.results[id]=runTool(n,r0);if(state.results[id].data?.error){state.runStatus[id]='error';continue}}else{const resolved=renderBlockPrompt(n);state.results[id]={format:n.output,task:n.report?`Would call ${n.provider} / ${n.model}: ${n.name}.`:'Task summary disabled.',data:{demo:true,text:'',message:'AI content is not generated in frontend-only mode.',inputs:ups.map(x=>x.from.id),promptResolved:resolved.text,promptMissing:resolved.missing}}}state.runStatus[id]='done'}renderNodes();renderEdges();renderInspector()}
+state.running=false;state.lastRun=new Date();state.lastRunKind='preview';$('#previewButton').disabled=false;$('#previewButton').textContent='◇ Preview';renderNodes();renderEdges();renderInspector();toast('Flow tested — unused routes were skipped ♡')}
 
 async function runCloud(){
   if(state.running)return;
@@ -606,7 +624,7 @@ async function runCloud(){
     toast('Binary file inputs need the artifact upload integration. Use text input for this first cloud run.');return;
   }
   const flow=workflowJSON(),issues=window.MimoBridge.runIssues(flow,cloudModels);
-  if(issues.length){alert('This workflow is not ready for cloud execution:\\n\\n'+issues.join('\\n'));return}
+  if(issues.length){openDialog('checkDialog');return}
   const graph=window.MimoBridge.toBackend(flow,state.flowId||'draft',cloudModels);
   state.running=true;$('#runButton').disabled=true;$('#runButton .run-text').textContent='Running…';
   state.runStatus={};state.results={};state.lastRun=null;state.tab='run';setTabs();renderAll();
@@ -614,17 +632,13 @@ async function runCloud(){
     const output=await window.MimoCloud.request('/v1/workflows/execute',{
       method:'POST',body:{workflow:graph,input:state.initial.text||''}
     });
+    const lookup=Object.fromEntries(state.nodes.map(n=>[n.id,n]));
     for(const [id,result] of Object.entries(output.nodes||{})){
-      const value=result.result?.content;
       state.runStatus[id]=result.status==='completed'?'done':result.status||'done';
-      state.results[id]={
-        format:result.result?.kind||'text',
-        task:'Executed on Mimo Cloud Run'+(result.cost?.amount_usd?' · $'+result.cost.amount_usd:''),
-        data:{text:typeof value==='string'?value:JSON.stringify(value??''),chosenBranchId:result.chosen_port||null,backendResult:result.result,usage:result.usage}
-      };
+      state.results[id]=window.MimoCloudResults.normalize(lookup[id]||{type:'unknown'},result,lookup);
     }
     for(const id of output.skipped||[])state.runStatus[id]='skipped';
-    state.lastRun=new Date();toast('Cloud execution complete ♡');
+    state.lastRun=new Date();state.lastRunKind='cloud';toast('Cloud execution complete ♡');
   }catch(e){toast('Cloud execution failed: '+e.message);console.error('Mimo cloud execution failed:',e)}
   finally{
     state.running=false;$('#runButton').disabled=false;$('#runButton .run-text').textContent='Run in cloud';
@@ -632,6 +646,9 @@ async function runCloud(){
   }
 }
 $('#runButton').addEventListener('click',runCloud);
+$('#quickStartWorkflow').addEventListener('click',quickStartWorkflow);
+$('#checkFlowBtn').addEventListener('click',()=>openDialog('checkDialog'));
+$('#checkRunCloud').addEventListener('click',()=>{closeDialog('checkDialog');runCloud()});
 $('#previewButton').addEventListener('click',simulate);
 
 $$('.inspector-tab').forEach(el=>el.addEventListener('click',()=>{state.tab=el.dataset.tab;setTabs();renderInspector();if(matchMedia('(max-width:640px)').matches)$('#inspector').classList.add('open')}));
@@ -666,7 +683,7 @@ $('#workflowInputBtn').addEventListener('click',()=>openDialog('inputDialog'));$
         data=window.MimoBridge.fromBackend(definition);
       }
       if(!data)throw Error('No saved workflow JSON available.');
-      applyWorkflow(data,id);closeDialog('flowsDialog');
+      applyWorkflow(data,id);markSaved(v.cloud?'cloud':'local');closeDialog('flowsDialog');
     }catch(e){toast('Could not open workflow: '+e.message)}
   }else if(act==='export'){
     try{
