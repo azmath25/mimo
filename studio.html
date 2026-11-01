@@ -918,7 +918,7 @@ async function runCloud(){
     }
   }
 }
-const pageImageArtifact=new URL(location.href).searchParams.get('image_artifact');
+const pageImageArtifact=typeof URL!=='undefined'&&typeof location!=='undefined' ? new URL(location.href).searchParams.get('image_artifact') : null;
 if(pageImageArtifact && /^[0-9a-f-]{36}$/i.test(pageImageArtifact)){
   state.initialCloudArtifact=pageImageArtifact;
   state.initial={format:'image',text:'Transcribe the math on this PDF page precisely; preserve notation.',fileName:''};

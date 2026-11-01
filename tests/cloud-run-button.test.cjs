@@ -32,7 +32,7 @@ function harness(options = {}) {
   };
   let requestFn = async (path, opts) => {
     received.push([path,opts]);
-    return {nodes:{},skipped:[]};
+    return {id:"00000000-0000-4000-8000-000000000001",status:"completed",output:{nodes:{},skipped:[]}};
   };
   const ctx = {
     state,
@@ -85,7 +85,7 @@ test("a selected image gets uploaded and reaches cloud execution as an artifact"
   assert.equal(payload.kind,"mimo_image_artifact");
   assert.equal(payload.artifact_id,"artifact-xyz");
   assert.equal(payload.text,"Find x when 2x+3=7");
-  assert.match(h.status,/Cloud execution complete/);
+  assert.match(h.status,/completed/);
   assert.equal(h.button.disabled,false);
   assert.equal(h.state.running,false);
 });
@@ -111,7 +111,7 @@ test("plain text workflow still makes one real cloud request and recovers button
   const h=harness();
   await h.run();
   assert.equal(h.received.length,1);
-  assert.equal(h.received[0][0],"/v1/workflows/execute");
+  assert.equal(h.received[0][0],"/v1/runs/drafts");
   assert.equal(h.received[0][1].body.input,"Find x when 2x+3=7");
   assert.match(h.status,/Cloud execution complete/);
   assert.equal(h.state.lastRunKind,"cloud");
@@ -160,7 +160,7 @@ test("the result panel remains actionable if backend returns no output",async()=
   const h=harness();
   h.setRequest(async()=>null);
   await h.run();
-  assert.match(h.status,/no workflow output/);
+  assert.match(h.status,/persistent run ID/);
   assert.equal(h.button.disabled,false);
 });
 
