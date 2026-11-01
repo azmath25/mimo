@@ -285,7 +285,7 @@ const BASE={
  spark:{name:'AI assistant',subtitle:'A thoughtful collaborator',icon:'spark',prompt:'Read all supplied materials and complete the requested task carefully. State clearly what was done.',output:'text',accept:FMT,source:'connected'}
 };
 const TYPES={...BASE};
-const state={nodes:[],edges:[],seq:0,selected:null,selectedEdge:null,tab:'edit',scale:1,tx:0,ty:0,connecting:null,moving:null,running:false,runStatus:{},results:{},lastRun:null,lastRunKind:null,currentCloud:false,custom:{},savedFlows:[],flowId:null,builderEditing:null,workflowGoal:'',initial:{format:'text',text:'',fileName:''},initialFile:null,view:'workflow'};
+const state={nodes:[],edges:[],seq:0,selected:null,selectedEdge:null,tab:'edit',scale:1,tx:0,ty:0,connecting:null,moving:null,running:false,runStatus:{},results:{},lastRun:null,lastRunKind:null,currentCloud:false,custom:{},savedFlows:[],flowId:null,builderEditing:null,workflowGoal:'',initial:{format:'text',text:'',fileName:''},initialFile:null,initialCloudArtifact:null,lastCloudRunId:null,view:'workflow'};
 const N=$('#nodes'),P=$('#edgePaths'),workspace=$('#workspace'),canvas=$('#canvas'),world=$('#world'),panel=$('#inspectorContent');
 const storage=(key,content)=>{try{if(content===undefined)return JSON.parse(localStorage.getItem(key)||'null');localStorage.setItem(key,JSON.stringify(content));return true}catch(err){return false}};
 const customKey='mimo.blocks.v2',workflowKey='mimo.flows.v2';
@@ -618,8 +618,8 @@ function renderCloudReadiness(){
     issues.push('Input rule needs attention in block: '+n.name);
   }
   if(!getLayers())issues.push('The workflow graph contains a cycle.');
-  if(state.initialFile){
-    const file=state.initialFile;
+  if(state.initialFile||state.initialCloudArtifact){
+    const file=state.initialFile||{type:'image/png',size:1};
     if(!['image/png','image/jpeg'].includes(file.type))
       issues.push('Cloud vision accepts PNG/JPEG images only. PDF ingestion and other document formats are not yet supported.');
     if(!file.size||file.size>10*1024*1024)
@@ -678,7 +678,7 @@ window.addEventListener('beforeunload',e=>{
   e.preventDefault();
   e.returnValue='';
 });
-function newWorkflow(){if(state.running||!confirmDiscardEdits())return;closeDialog('flowsDialog');state.nodes=[];state.edges=[];state.seq=0;state.selected=null;state.selectedEdge=null;state.flowId=null;state.currentCloud=false;state.workflowGoal='';state.initialFile=null;state.initial={format:'text',text:'',fileName:''};state.results={};state.runStatus={};state.lastRun=null;state.lastRunKind=null;$('#workflowTitle').value='Untitled workflow';const a=makeNode('input',60,220,{name:'Workflow input'}),b=makeNode('output',620,220,{name:'My outputs'});state.nodes.push(a,b);setView('workflow');renderAll();requestAnimationFrame(()=>{fitView();selectNode(a.id)});toast('A fresh workflow is ready ✳');lastSavedSignature=null;savedLocation='new';updateDraftStatus()}
+function newWorkflow(){if(state.running||!confirmDiscardEdits())return;closeDialog('flowsDialog');state.nodes=[];state.edges=[];state.seq=0;state.selected=null;state.selectedEdge=null;state.flowId=null;state.currentCloud=false;state.workflowGoal='';state.initialFile=null;state.initialCloudArtifact=null;state.initial={format:'text',text:'',fileName:''};state.results={};state.runStatus={};state.lastRun=null;state.lastRunKind=null;$('#workflowTitle').value='Untitled workflow';const a=makeNode('input',60,220,{name:'Workflow input'}),b=makeNode('output',620,220,{name:'My outputs'});state.nodes.push(a,b);setView('workflow');renderAll();requestAnimationFrame(()=>{fitView();selectNode(a.id)});toast('A fresh workflow is ready ✳');lastSavedSignature=null;savedLocation='new';updateDraftStatus()}
 function quickStartWorkflow(){
   if(state.running||!confirmDiscardEdits())return;
   state.nodes=[];state.edges=[];state.seq=0;state.selected=null;state.selectedEdge=null;
@@ -779,7 +779,7 @@ function renderFlowList(){
 function openDialog(id){if(id==='guideDialog')refreshGuide();if(id==='inputDialog'){populateInputDialog()}if(id==='flowsDialog')renderFlowList();if(id==='checkDialog')renderCloudReadiness();$('#'+id).hidden=false;if(id==='guideDialog')refreshGuide()}
 function closeDialog(id){$('#'+id).hidden=true}
 function populateInputDialog(){$('#initialFormat').value=state.initial.format;$('#initialText').value=state.initial.text||'';$('#initialFile').value='';$('#inputFileHint').textContent=state.initialFile?`Current file: ${state.initialFile.name}. Choose a new one to replace it.`:state.initial.fileName?`Previous file: ${state.initial.fileName}. Re-select it to make its data available.`:'PNG/JPEG images upload to Mimo Cloud Storage only when you click Run in cloud; binary data is not included in workflow JSON.'}
-function applyInput(){const oldFormat=state.initial.format;const file=$('#initialFile').files[0];state.initial={format:$('#initialFormat').value,text:$('#initialText').value,fileName:file?file.name:(state.initialFile?state.initialFile.name:'')};if(file){state.initialFile=file;state.initial.format=file.type.startsWith('image/')?'image':['text/plain','text/markdown'].includes(file.type)?'text':'document'}else if(state.initial.format==='text'||oldFormat!==state.initial.format){state.initialFile=null;state.initial.fileName=''}closeDialog('inputDialog');renderAll();toast('Input updated for all Input blocks ♡')}
+function applyInput(){const oldFormat=state.initial.format;const file=$('#initialFile').files[0];state.initial={format:$('#initialFormat').value,text:$('#initialText').value,fileName:file?file.name:(state.initialFile?state.initialFile.name:'')};if(file){state.initialCloudArtifact=null;state.initialFile=file;state.initial.format=file.type.startsWith('image/')?'image':['text/plain','text/markdown'].includes(file.type)?'text':'document'}else if(state.initial.format==='text'||oldFormat!==state.initial.format){state.initialFile=null;state.initial.fileName=''}closeDialog('inputDialog');renderAll();toast('Input updated for all Input blocks ♡')}
 function sanitizeNode(r){if(!r||typeof r!=='object')return null;const type=typeof r.type==='string'&&/^[a-zA-Z0-9_-]{1,90}$/.test(r.type)?r.type:'blank',t=typeInfo(type),rawId=string(r.id,75),id=/^[a-zA-Z0-9_-]{1,75}$/.test(rawId)?rawId:'';if(!id)return null;const allowed=FMT.includes(r.output)?r.output:t.output;const execution=['ai','tool','condition'].includes(r.execution)?r.execution:(t.execution||'ai');return {id,type,x:Number.isFinite(+r.x)?Math.max(-2000,Math.min(10000,+r.x)):50,y:Number.isFinite(+r.y)?Math.max(-2000,Math.min(10000,+r.y)):130,name:string(r.name,65)||t.name,summary:string(r.summary,140)||t.subtitle,prompt:string(r.prompt,10000),output:type==='input'?'text':type==='output'?'collection':allowed,execution,conditionMode:r.conditionMode==='ai'?'ai':'rule',conditionField:string(r.conditionField,120),branches:cleanBranches(r.branches),aiDemoBranch:string(r.aiDemoBranch,40),toolKind:TOOLS[r.toolKind]?r.toolKind:(t.toolKind||'trim'),toolEngine:['pdflatex','lualatex','xelatex','tectonic'].includes(r.toolEngine)?r.toolEngine:'pdflatex',compilerTarget:['pdf','svg','png'].includes(r.compilerTarget)?r.compilerTarget:'pdf',compilerEndpoint:string(r.compilerEndpoint,200)||'/api/compile/tikz',toolField:string(r.toolField,120),toolFind:string(r.toolFind,240),toolReplacement:string(r.toolReplacement,240),includeWorkflowGuide:r.includeWorkflowGuide===true,accept:Array.isArray(r.accept)?FMT.filter(x=>r.accept.includes(x)):FMT.slice(),source:['connected','workflow','manual'].includes(r.source)?r.source:t.source||'connected',combine:['all','first','latest'].includes(r.combine)?r.combine:'all',required:r.required!==false,report:r.report!==false,provider:MODELS.hasOwnProperty(r.provider)?r.provider:'OpenAI',model:string(r.model,100)||'gpt-6',maxTokens:Number.isInteger(Number(r.maxTokens))&&Number(r.maxTokens)>=64&&Number(r.maxTokens)<=16384?Number(r.maxTokens):1024}}
 function applyWorkflow(data,keepId=null){const r=data?.kind==='mimo/workflow'?data:data?.workflow||data;if(!r||!Array.isArray(r.nodes)||!Array.isArray(r.edges)||r.nodes.length>350||r.edges.length>1300)throw Error('That file is not a valid Mimo workflow.');if(r.customBlocks&&typeof r.customBlocks==='object'){for(const [id,b] of Object.entries(r.customBlocks)){if(/^c_[a-zA-Z0-9_-]{3,90}$/.test(id)&&!BASE[id])state.custom[id]=sanitizeBlock(b,id)}refreshTypes();storage(customKey,state.custom);buildTemplates();renderBuilderSaved()}
 const ids=new Set(),nodes=[];r.nodes.forEach(raw=>{const n=sanitizeNode(raw);if(n&&!ids.has(n.id)){ids.add(n.id);nodes.push(n)}});const edges=[],used=new Set();for(const e of r.edges){if(!e||!ids.has(e.from)||!ids.has(e.to)||e.from===e.to)continue;const a=nodes.find(n=>n.id===e.from),b=nodes.find(n=>n.id===e.to),key=e.from+'>'+e.to+':'+(e.branchId||'');if(executionOf(a)==='condition'&&!cleanBranches(a.branches).some(v=>v.id===e.branchId))continue;if(a.type==='output'||b.type==='input'||used.has(key))continue;used.add(key);edges.push({from:e.from,to:e.to,...(e.branchId?{branchId:e.branchId}:{})})}
@@ -881,11 +881,20 @@ async function runCloud(){
       };
       label.textContent='Running AI…';
       showCloudRunStatus('Image uploaded. Running the vision workflow…');
+    }else if(state.initialCloudArtifact){
+      cloudInput={kind:'mimo_image_artifact',artifact_id:state.initialCloudArtifact,
+                  text:state.initial.text||''};
     }
-    const output=await window.MimoCloud.request('/v1/workflows/execute',{
-      method:'POST',body:{workflow:graph,input:cloudInput}
+    const persisted=await window.MimoCloud.request('/v1/runs/drafts',{
+      method:'POST',body:{workflow:graph,input:cloudInput,background:false}
     });
-    if(!output||typeof output!=='object')throw Error('The backend returned no workflow output.');
+    if(!persisted?.id)throw Error('The backend did not return a persistent run ID.');
+    state.lastCloudRunId=persisted.id;
+    const output=persisted.output||{};
+    if(persisted.status!=='completed'){
+      throw Error('Run '+persisted.id+' ended in state '+persisted.status+
+        '. Open Runs & reviews to inspect checkpoints and errors.');
+    }
     const lookup=Object.fromEntries(state.nodes.map(n=>[n.id,n]));
     for(const [id,result] of Object.entries(output.nodes||{})){
       state.runStatus[id]=result.status==='completed'?'done':result.status||'done';
@@ -893,7 +902,7 @@ async function runCloud(){
     }
     for(const id of output.skipped||[])state.runStatus[id]='skipped';
     state.lastRun=new Date();state.lastRunKind='cloud';
-    showCloudRunStatus('Cloud execution complete. Select the Output block to inspect its result.');
+    showCloudRunStatus('Cloud run '+state.lastCloudRunId+' completed. View the full history under Runs & reviews.');
     toast('Cloud execution complete ♡');
   }catch(e){
     const message=e instanceof Error?e.message:String(e);
@@ -909,10 +918,16 @@ async function runCloud(){
     }
   }
 }
+const pageImageArtifact=new URL(location.href).searchParams.get('image_artifact');
+if(pageImageArtifact && /^[0-9a-f-]{36}$/i.test(pageImageArtifact)){
+  state.initialCloudArtifact=pageImageArtifact;
+  state.initial={format:'image',text:'Transcribe the math on this PDF page precisely; preserve notation.',fileName:''};
+  toast('PDF page vision artifact linked. Connect Input to a vision-capable AI model and Run in cloud.');
+}
 $('#runButton').addEventListener('click',runCloud);
 $('#clearInitialFile').addEventListener('click',()=>{
   const text=$('#initialText').value;
-  state.initialFile=null;
+  state.initialFile=null;state.initialCloudArtifact=null;
   state.initial={format:'text',text,fileName:''};
   $('#initialFile').value='';
   $('#initialFormat').value='text';
