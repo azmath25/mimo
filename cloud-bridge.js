@@ -81,7 +81,7 @@
       initialInput:{format:"text",text:"",fileName:""}, workflowGoal:"", customBlocks:{}
     };
   }
-  function runIssues(flow, models) {
+  function runIssues(flow, models, capabilities = {}) {
     const errors = [];
     const nodes = asArray(flow?.nodes), edges = asArray(flow?.edges);
     if (!nodes.some(n=>n.type==="input") || !nodes.some(n=>n.type==="output")) errors.push("A cloud run needs an Input and Output block.");
@@ -122,7 +122,14 @@
       if (type === "tool" && !["uppercase","lowercase"].includes(n.toolKind)) {
         errors.push("Tool ‘" + n.name + "’ (" + (n.toolKind || "unknown") + ") is preview-only.");
       }
-      if (type === "compiler") errors.push("TikZ compilation is not yet enabled for production cloud runs.");
+      if (type === "compiler") {
+        if (!capabilities?.compiler?.enabled)
+          errors.push("TikZ compiler service is not enabled. Deploy the private compiler and configure COMPILER_URL.");
+        if (n.toolEngine && n.toolEngine !== "pdflatex")
+          errors.push("TikZ cloud compilation currently supports pdflatex only.");
+        if (n.compilerTarget && n.compilerTarget !== "pdf")
+          errors.push("TikZ cloud compilation currently returns PDF only.");
+      }
       if (type === "condition") {
         if (n.conditionMode === "ai" || asArray(n.branches).some(b=>b.op !== "==" && b.op !== "else")) {
           errors.push("‘" + n.name + "’ uses conditional routing not yet supported by the backend.");
