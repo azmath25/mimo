@@ -4,7 +4,17 @@
   const $=id=>document.getElementById(id),safe=()=>MimoSite.safe;
   const studioOrigin="https://mimo-backend-git-993130348924.europe-west1.run.app";
   let projects=[],workflows=[],versions=new Map(),newKey=null,requestExample="",endpoint="",loadedUid=null;
+  let verifiedOrigin=null,verifyDetail="";
   const msg=(id,text,error=false)=>MimoSite.notice(id,text,error);
+  function executionOriginKey(){
+    const uid=window.MimoCloud?.user?.uid;
+    return uid?"mimo.execution-origin.v1."+uid:null;
+  }
+  function restoreExecutionOrigin(){
+    const key=executionOriginKey();if(!key)return;
+    try{$("executionOrigin").value=localStorage.getItem(key)||""}catch{}
+    verifiedOrigin=null;verifyDetail="";updateEndpoint();
+  }
   function metadataKey(){const uid=window.MimoCloud?.user?.uid;return uid?"mimo.projects.v1."+uid:null}
   function restoreProjects(){
     const key=metadataKey();if(!key)return;
@@ -70,11 +80,13 @@
   function updateEndpoint(){
     const origin=getOrigin(),id=$("endpointWorkflow").value,version=$("endpointVersion").value;
     const ready=Boolean(origin.url&&id&&version);
+    const verified=Boolean(origin.url&&origin.url===verifiedOrigin);
     endpoint=ready?origin.url+"/v1/workflows/"+encodeURIComponent(id)+"/runs":"";
     const status=$("endpointStatus");
-    status.textContent=!origin.url?origin.reason:!id?"Select a workflow":!version?"Publish a workflow version":origin.reason;
-    status.className="mg-pill warn";
-    $("copyEndpoint").disabled=!ready;$("copyRequest").disabled=!ready;
+    status.textContent=!origin.url?origin.reason:!id?"Select a workflow":!version?"Publish a workflow version":
+      verified?"✓ Execution service healthy":verifyDetail||origin.reason;
+    status.className=verified?"mg-pill good":"mg-pill warn";
+    $("copyEndpoint").disabled=!(ready&&verified);$("copyRequest").disabled=!(ready&&verified);
     $("endpointPreview").textContent=endpoint||"Configure a separate execution service, then select a published workflow version.";
     $("streamPreview").textContent=ready?origin.url+"/v1/workflows/"+encodeURIComponent(id)+"/stream":"—";
     $("statusPreview").textContent=ready?origin.url+"/v1/runs/{run_id}":"—";
@@ -121,7 +133,46 @@
   $("grantWorkflow").addEventListener("change",()=>loadVersions("grantWorkflow","grantVersion"));
   $("endpointWorkflow").addEventListener("change",()=>loadVersions("endpointWorkflow","endpointVersion"));
   $("endpointVersion").addEventListener("change",updateEndpoint);
-  $("executionOrigin").addEventListener("input",updateEndpoint);
+  $("executionOrigin").addEventListener("input",()=>{
+    verifiedOrigin=null;verifyDetail="";
+    updateEndpoint();
+  });
+  $("verifyExecution").addEventListener("click",async()=>{
+    const origin=getOrigin();
+    if(!origin.url){msg("endpointFeedback",origin.reason,true);return}
+    const button=$("verifyExecution");
+    verifiedOrigin=null;verifyDetail="Checking execution service…";updateEndpoint();
+    button.disabled=true;button.textContent="Verifying…";
+    try{
+      // A public metadata probe, no Firebase tokens or API project keys.
+      // CORS on the execution service must permit the GitHub Pages origin.
+      const response=await fetch(origin.url+"/health/service",{
+        method:"GET",mode:"cors",credentials:"omit",cache:"no-store"
+      });
+      if(!response.ok)throw Error("Role check returned HTTP "+response.status);
+      const detail=await response.json();
+      if(detail.service!=="mimo"||detail.role!=="execution"||detail.published_runs_enabled!==true){
+        throw Error("This URL does not serve the Mimo execution role.");
+      }
+      const ready=await fetch(origin.url+"/health/ready",{
+        method:"GET",mode:"cors",credentials:"omit",cache:"no-store"
+      });
+      if(!ready.ok)throw Error("Backend readiness returned HTTP "+ready.status);
+      const health=await ready.json();
+      if(health.status!=="ok"||health.db!==true||health.storage!==true){
+        throw Error("Neon or object storage is not ready.");
+      }
+      if(getOrigin().url!==origin.url)return;
+      verifiedOrigin=origin.url;
+      const key=executionOriginKey();if(key)try{localStorage.setItem(key,origin.url)}catch{}
+      verifyDetail="";msg("endpointFeedback","Execution service role, database and storage verified. Make a published run from your trusted server to verify the project key and AI provider.");
+    }catch(error){
+      verifiedOrigin=null;
+      verifyDetail="Cannot verify service (check address, permissions and CORS)";
+      msg("endpointFeedback","Execution service verification failed: "+error.message+
+        ". Confirm MIMO_API_ROLE=execution, public health endpoints, and MIMO_CORS_ORIGINS=https://azmath25.github.io.",true);
+    }finally{button.disabled=false;button.textContent="Verify service";updateEndpoint()}
+  });
   $("copyEndpoint").addEventListener("click",()=>{if(endpoint)copy(endpoint,"Endpoint")});
   $("copyRequest").addEventListener("click",()=>{if(endpoint)copy(requestExample,"Request example")});
   $("revokeProjectBtn").addEventListener("click",async()=>{
@@ -136,12 +187,12 @@
     finally{$("revokeProjectBtn").disabled=false}
   });
   window.addEventListener("mimo:auth-changed",()=>{
-    if(!MimoSite.requireCloud()){setKey(null);projects=[];loadedUid=null}
+    if(!MimoSite.requireCloud()){setKey(null);projects=[];loadedUid=null;verifiedOrigin=null;verifyDetail="";}
   });
   MimoSite.whenReady(async()=>{
     const uid=window.MimoCloud.user.uid;
     if(loadedUid===uid)return;
     loadedUid=uid;setKey(null);projects=[];versions.clear();
-    restoreProjects();await loadWorkflows();
+    restoreProjects();restoreExecutionOrigin();await loadWorkflows();
   });
 })();
