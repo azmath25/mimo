@@ -23,29 +23,101 @@
      model:"openrouter/free",secret:"openrouter",input:"0",output:"0"
    },
    groq:{
-     id:"groq_text",name:"Groq Text",
+     id:"groq_text",name:"Groq GPT-OSS 20B",
      provider:"openai_compatible",endpoint:"https://api.groq.com/openai/v1",
      model:"openai/gpt-oss-20b",secret:"groq",input:"",output:""
+   },
+   groq_120b:{
+     id:"groq_120b",name:"Groq GPT-OSS 120B",
+     provider:"openai_compatible",endpoint:"https://api.groq.com/openai/v1",
+     model:"openai/gpt-oss-120b",secret:"groq",input:"",output:""
    },
    groq_vision:{
      id:"groq_vision",name:"Groq Vision (Qwen 3.8 27B)",
      provider:"openai_compatible",endpoint:"https://api.groq.com/openai/v1",
-     model:"qwen/qwen3.8-27b",secret:"groq",input:"",output:""
+     model:"qwen/qwen3.8-27b",secret:"groq",input:"",output:"",vision:true
+   },
+   gemini:{
+     id:"gemini_flash",name:"Gemini Flash",
+     provider:"openai_compatible",endpoint:"https://generativelanguage.googleapis.com/v1beta/openai",
+     model:"gemini-3.8-flash",secret:"gemini",input:"",output:"",vision:true
+   },
+   deepseek:{
+     id:"deepseek_flash",name:"DeepSeek Flash",
+     provider:"openai_compatible",endpoint:"https://api.deepseek.com",
+     model:"deepseek-flash",secret:"deepseek",input:"",output:""
+   },
+   cerebras:{
+     id:"cerebras_custom",name:"Cerebras — choose model ID",
+     provider:"openai_compatible",endpoint:"https://api.cerebras.ai/v1",
+     model:"",secret:"cerebras",input:"",output:""
+   },
+   openai:{
+     id:"openai_custom",name:"OpenAI — choose model ID",
+     provider:"openai_compatible",endpoint:"https://api.openai.com/v1",
+     model:"",secret:"openai",input:"",output:""
    }
  };
+ // These are suggestions, not an exhaustive or live model catalog.
+ // The exact remote ID can always be typed manually.
+ const providerSuggestions={
+   groq:["groq","groq_120b","groq_vision"],
+   groq_120b:["groq_120b","groq","groq_vision"],
+   groq_vision:["groq_vision","groq","groq_120b"],
+   openrouter:["openrouter"],
+   gemini:["gemini"],
+   deepseek:["deepseek"],
+   cerebras:[],
+   openai:[]
+ };
+ function setCapabilities(p){
+   const generate=p.provider==="image_generation";
+   $("capText").checked=!generate;
+   $("capVision").checked=!!p.vision;
+   $("capGenerate").checked=generate;
+ }
+ function fillSuggestionList(name,selected){
+   const ids=providerSuggestions[name]||[];
+   $("modelSuggestion").innerHTML=ids.map(id=>{
+     const p=providerPresets[id];
+     return '<option value="'+id+'">'+MimoSite.safe(p.name)+' · '+MimoSite.safe(p.model)+'</option>';
+   }).join("")+'<option value="custom">Use my own model ID</option>';
+   $("modelSuggestion").value=ids.includes(selected)?selected:"custom";
+   $("modelSuggestionsWrap").hidden=ids.length===0;
+ }
+ function applySuggested(name,keepProvider=false){
+   const p=providerPresets[name];if(!p||editing)return;
+   $("modelId").value=p.id;$("modelName").value=p.name;
+   $("modelRemote").value=p.model;
+   if(!keepProvider){
+     $("modelProvider").value=p.provider;
+     $("modelEndpoint").value=p.endpoint;
+     $("modelSecret").value=p.secret;
+     $("modelInputPrice").value=p.input;$("modelOutputPrice").value=p.output;
+     $("modelImagePrice").value="";
+   }
+   setCapabilities(p);secretEnv();
+   message("Configuration filled. "+($("modelSecretHint").textContent||"")+
+     (p.model?"":" Enter a supported model ID from your provider before registering."));
+ }
  function choosePreset(name){
    if(editing)return;
-   const p=providerPresets[name];if(!p)return;
-   $("modelId").value=p.id;$("modelName").value=p.name;
-   $("modelProvider").value=p.provider;$("modelRemote").value=p.model;
-   $("modelEndpoint").value=p.endpoint;$("modelSecret").value=p.secret;
-   $("modelInputPrice").value=p.input;$("modelOutputPrice").value=p.output;
-   $("modelImagePrice").value="";secretEnv();
-   message("Fields filled. Attach the "+$("modelSecretEnv").value+" Cloud Run secret before testing.");
+   if(!providerPresets[name]){
+     fillSuggestionList("","custom");
+     message("Enter any OpenAI-compatible API endpoint, the exact model ID and a secret reference. No backend code changes are needed.");
+     return;
+   }
+   fillSuggestionList(name,name);
+   applySuggested(name);
  }
-  function secretEnv(){
+ function secretEnv(){
    const ref=$("modelSecret").value.trim();
-   $("modelSecretEnv").value=ref?"MIMO_SECRET_"+ref.toUpperCase().replace(/-/g,"_"):"MIMO_SECRET_…";
+   const key=ref?"MIMO_SECRET_"+ref.toUpperCase().replace(/-/g,"_"):"MIMO_SECRET_…";
+   $("modelSecretEnv").value=key;
+   const reuse=models.some(m=>m.secret_ref===ref&&m.secret_configured);
+   $("modelSecretHint").textContent=!ref?"Choose a secret reference, never the API key.":
+      reuse?"A registered model already uses this attached secret — no new Cloud Run key needed.":
+      "If this key reference is not yet attached to Cloud Run, add "+key+" in Secret Manager once.";
  }
  function clear(){
    editing=null;$("modelForm").reset();$("modelPreset").disabled=false;$("modelPreset").value="";$("modelId").disabled=false;
