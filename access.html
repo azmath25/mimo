@@ -20,8 +20,10 @@
  <div class="mg-field"><label for="grantVersion">Published version</label><select id="grantVersion"><option value="">Select a workflow</option></select></div>
 </div><div class="mg-actions"><button type="submit" class="mg-btn primary" id="grantPermission">Grant run permission</button></div></form>
 <div id="grantFeedback" class="mg-feedback" role="status" aria-live="polite"></div>
-<p class="mg-hint">Project identifiers are remembered locally for convenience; API keys are never stored. This page cannot yet list existing server-side permissions.</p>
+<p class="mg-hint">Projects and permissions are loaded from Neon. Secret API keys are never stored in the browser.</p>
 </section></div>
+<div class="mg-section"><h2>Manage existing API grants</h2></div>
+<section class="mg-card"><div class="mg-fields"><div class="mg-field"><label for="manageProject">Project</label><select id="manageProject"></select></div></div><div class="mg-actions"><button type="button" class="mg-btn" id="loadGrants">View current grants</button><button type="button" class="mg-btn danger" id="rotateApiKey">Rotate project API key</button></div><div id="projectGrants" class="mg-list"><div class="mg-empty">Choose a project to inspect its permissions.</div></div><div id="manageFeedback" class="mg-feedback" role="status" aria-live="polite"></div><p class="mg-hint">Rotating a project key invalidates the previous key immediately. All existing grants remain attached to that project ID. Copy the new key once and update the other project's backend secrets.</p></section>
 <div class="mg-section"><h2>3. Generate a workflow API address</h2></div>
 <section class="mg-card"><div class="mg-fields">
  <div class="mg-field span"><label for="executionOrigin">Execution Cloud Run service URL (HTTPS)</label><input id="executionOrigin" type="url" placeholder="https://your-execution-service.europe-west1.run.app" autocomplete="off">
@@ -41,7 +43,7 @@
 <div id="endpointFeedback" class="mg-feedback" role="status" aria-live="polite"></div>
 </section>
 <div class="mg-section"><h2>Manage project access</h2></div>
-<section class="mg-card"><h2>Revoke a project key</h2><p>Revocation disables its project key. Existing API credentials cannot be recovered or rotated through this page; create a new project if necessary.</p>
+<section class="mg-card"><h2>Revoke a project key</h2><p>Revocation disables its project key. API credentials can be rotated above. Revoking a project permanently disables its key.</p>
 <div class="mg-fields"><div class="mg-field"><label for="revokeProject">Project</label><select id="revokeProject"></select></div></div>
 <div class="mg-actions"><button class="mg-btn danger" type="button" id="revokeProjectBtn">Revoke project</button></div>
 <div id="revokeFeedback" class="mg-feedback" role="status"></div></section>
