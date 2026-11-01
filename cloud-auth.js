@@ -37,7 +37,7 @@ async function request(path, options = {}) {
   const token = await auth.currentUser.getIdToken();
   const headers = new Headers(options.headers || {});
   headers.set("Authorization", "Bearer " + token);
-  const multipart = options.body instanceof FormData;
+  const multipart = typeof FormData !== 'undefined' && options.body instanceof FormData;
   if (options.body !== undefined && !multipart) headers.set("Content-Type", "application/json");
   // Never set multipart Content-Type manually: the browser supplies its boundary.
   let response;
