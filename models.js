@@ -21,7 +21,7 @@
    $("modelName").value=m.display_name;$("modelRemote").value=m.remote_model_id;
    $("modelEndpoint").value=m.endpoint;$("modelSecret").value=m.secret_ref;
    $("modelEnabled").checked=m.enabled;
-   $("modelInputPrice").value="";$("modelOutputPrice").value="";
+   $("modelInputPrice").value="";$("modelOutputPrice").value="";$("modelImagePrice").value="";
    $("saveModel").textContent="Save model changes";$("modelFormTitle").textContent="Edit "+m.display_name;
    $("cancelEdit").hidden=false;secretEnv();message("");
    $("modelForm").scrollIntoView({behavior:"smooth",block:"center"});
@@ -37,7 +37,7 @@
       '<small>'+safe(m.id)+' · '+safe(m.remote_model_id)+' · '+safe(m.provider)+'</small>'+
       '<small class="mg-break">'+safe(m.endpoint)+' · secret reference '+safe(m.secret_ref)+'</small></div>'+
       '<div class="mg-row-actions"><button class="mg-btn small" data-action="edit">Edit</button>'+
-      '<button class="mg-btn small" data-action="test" '+(!available?'disabled title="Attach provider credentials first"':'')+'>Test</button>'+
+      '<button class="mg-btn small" data-action="test" '+(!available||m.provider==="image_generation"?'disabled title="Currently available for configured text models only"':'')+'>Test</button>'+
       '<button class="mg-btn small" data-action="default" '+(m.is_default||!m.enabled?'disabled':'')+'>Set default</button>'+
       '<button class="mg-btn small '+(m.enabled?'danger':'')+'" data-action="toggle">'+(m.enabled?'Disable':'Enable')+'</button></div></article>';
    }).join(""):'<div class="mg-empty">No models registered. Use the form below to add your first provider connection.</div>';
@@ -88,9 +88,9 @@
    };
    if(!editing){payload.id=$("modelId").value.trim();payload.provider=$("modelProvider").value}
    const input=$("modelInputPrice").value,output=$("modelOutputPrice").value;
-   if(input!==""||output!==""){
+   if(input!==""||output!==""||$("modelImagePrice").value!==""){
      if(input===""||output===""){message("To set pricing, enter both input and output rates.",true);return}
-     payload.pricing={input_per_million:Number(input),output_per_million:Number(output),currency:"USD",source:"manual"};
+     payload.pricing={input_per_million:Number(input),output_per_million:Number(output),image_per_unit:Number($("modelImagePrice").value||0),currency:"USD",source:"manual"};
    }
    setBusy(true);
    try{
