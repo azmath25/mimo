@@ -39,8 +39,11 @@
         config.max_tokens = Number.isInteger(budget) && budget >= 64 && budget <= 16384 ? budget : 1024;
         config.response = {kind: n.output === "image" ? "image" : "text", delivery: "complete"};
       } else if (type === "tool") {
-        config.tool = ({uppercase: "upper", lowercase: "lower"})[n.toolKind] || String(n.toolKind || "unsupported");
+        config.tool = ({uppercase: "upper", lowercase: "lowercase", lowercase_unused: "lower", trim: "trim", replace: "replace", "json-field": "json_field"})[n.toolKind] || String(n.toolKind || "unsupported");
+        if (config.tool === "lowercase") config.tool = "lower";
         config.input = "{{inputs.1}}";
+        if (n.toolKind === "replace") {config.find = n.toolFind || ""; config.replacement = n.toolReplacement || "";}
+        if (n.toolKind === "json-field") config.field = n.toolField || "";
       } else if (type === "compiler") {
         config.source = "{{inputs.1}}";
         config.target = n.compilerTarget === "png" ? "png" : "pdf";
@@ -49,7 +52,9 @@
         config.ports = branches.map(b => String(b.id));
         config.default_port = branches.length ? String(branches[branches.length - 1].id) : "";
         config.value = "{{inputs.1}}";
-        config.rules = branches.filter(b => b.op === "==").map(b => ({equals: String(b.value), port: String(b.id)}));
+        config.mode = "numeric";
+        config.field = String(n.conditionField || "");
+        config.rules = branches.filter(b => b.op !== "else").map(b => ({op: String(b.op), threshold: String(b.value), port: String(b.id)}));
       } else if (type === "output") {
         config.collect = [...new Set(edges.filter(e => e.target === n.id).map(e => e.source))];
       }
@@ -120,9 +125,11 @@
       if (type === "ai" && /\{\{\s*(?!input\s*\}\}|inputs\.\d+\s*\}\}|workflow\.input\s*\}\})[^}]+\}\}/.test(n.prompt || "")) {
         errors.push("‘" + n.name + "’ uses prompt variables not yet supported by the backend.");
       }
-      if (type === "tool" && !["uppercase","lowercase"].includes(n.toolKind)) {
+      if (type === "tool" && !["uppercase","lowercase","trim","replace","json-field"].includes(n.toolKind)) {
         errors.push("Tool ‘" + n.name + "’ (" + (n.toolKind || "unknown") + ") is preview-only.");
       }
+      if (type === "tool" && n.toolKind === "replace" && !n.toolFind) errors.push("Replace tool needs a search string.");
+      if (type === "tool" && n.toolKind === "json-field" && !n.toolField) errors.push("JSON field tool needs a property path.");
       if (type === "compiler") {
         if (!capabilities?.compiler?.enabled)
           errors.push("TikZ compiler service is not enabled. Deploy the private compiler and configure COMPILER_URL.");
@@ -132,8 +139,9 @@
           errors.push("TikZ cloud compilation currently returns PDF or PNG only.");
       }
       if (type === "condition") {
-        if (n.conditionMode === "ai" || asArray(n.branches).some(b=>b.op !== "==" && b.op !== "else")) {
-          errors.push("‘" + n.name + "’ uses conditional routing not yet supported by the backend.");
+        if (n.conditionMode === "ai") errors.push("AI-based routing is not supported in cloud yet.");
+        for (const branch of asArray(n.branches)) {
+          if (branch.op !== "else" && (!["<","<=",">",">=","==","!="].includes(branch.op) || !Number.isFinite(Number(branch.value)) || String(branch.value).trim() === "")) errors.push("Invalid numeric condition in " + n.name + ": " + branch.label);
         }
         for (const branch of asArray(n.branches)) {
           if (!edges.some(e=>e.from === n.id && e.branchId === branch.id)) {
