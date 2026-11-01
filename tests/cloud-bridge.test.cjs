@@ -39,7 +39,10 @@ test("unavailable models and unsupported preview-only tools block cloud runs",()
   assert.deepEqual(bridge.runIssues(a,models),[]);
   assert.equal(bridge.toBackend(a,"wf_ai",models).nodes[1].config.model_id,"m1");
   const b={...flow,nodes:[flow.nodes[0],{...flow.nodes[1],toolKind:"json-field"},flow.nodes[2]]};
-  assert.ok(bridge.runIssues(b,[]).some(x=>x.includes("preview-only")));
+  assert.ok(bridge.runIssues(b,[]).some(x=>x.includes("property path")));
+  b.nodes[1].toolField="answer.value";
+  assert.deepEqual(bridge.runIssues(b,[]),[]);
+  assert.equal(bridge.toBackend(b,"wf_json",[]).nodes[1].config.tool,"json_field");
 });
 test("disconnected nodes are reported as cloud execution issues",()=>{
   const isolated={id:"b4",type:"tool",execution:"tool",toolKind:"uppercase",name:"Isolated"};
