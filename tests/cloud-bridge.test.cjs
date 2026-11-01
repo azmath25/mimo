@@ -48,7 +48,7 @@ test("disconnected nodes are reported as cloud execution issues",()=>{
 });
 
 test("static studio scripts parse, auth is required, and v3.3 canvas is retained",()=>{
-  const html=fs.readFileSync("index.html","utf8");
+  const html=fs.readFileSync("studio.html","utf8");
   assert.match(html,/id="cloudGate"/);
   assert.match(html,/cloud-auth\.js/);
   assert.match(html,/cloud-bridge\.js/);
