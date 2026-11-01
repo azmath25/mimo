@@ -58,6 +58,19 @@ async function request(path, options = {}) {
   }
   return data;
 }
+async function uploadFile(file) {
+  if (!(file instanceof File)) throw Error("Select a file to upload.");
+  if (!["application/pdf","image/png","image/jpeg"].includes(file.type)) {
+    throw Error("Select PDF, PNG or JPEG only.");
+  }
+  if (file.size < 1 || file.size > 50*1024*1024) {
+    throw Error("File size must be 1 byte–50 MiB; the backend may impose a smaller limit.");
+  }
+  const form = new FormData();
+  form.append("file", file, file.name);
+  return request("/v1/artifacts",{method:"POST",body:form});
+}
+
 async function uploadArtifact(file) {
   if (!(file instanceof File)) throw Error("Select an image file first.");
   if (!["image/png", "image/jpeg"].includes(file.type)) {
@@ -91,7 +104,7 @@ async function requestBlob(path, options = {}) {
   }
   return response.blob();
 }
-const cloud = { apiOrigin: API_ORIGIN, authorized: false, user: null, request, requestBlob, uploadArtifact };
+const cloud = { apiOrigin: API_ORIGIN, authorized: false, user: null, request, requestBlob, uploadArtifact, uploadFile };
 window.MimoCloud = cloud;
 
 login.addEventListener("submit", async event => {
