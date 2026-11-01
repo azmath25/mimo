@@ -174,7 +174,7 @@
   <button class="btn icononly mobile-toggle" id="toggleLibrary" aria-label="Open block library"><svg class="icon" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   <div class="brand"><div class="mascot"><i></i></div><div><div class="brand-name">mimo<span style="color:#aaa">.</span></div><div class="brand-caption">workflow studio</div></div></div>
   <div class="top-center"><div class="view-nav"><button class="nav-link active" data-view="workflow">◫ Workflow</button><button class="nav-link" data-view="builder">✳ Build block</button></div><input class="workflow-name" id="workflowTitle" aria-label="Workflow name" value="Untitled workflow" maxlength="60"></div>
-  <div class="top-actions"><span class="draft-status" id="draftStatus" aria-live="polite">Not saved</span><button class="btn icononly mobile-inspect" id="toggleInspector" aria-label="Open inspector"><svg class="icon" viewBox="0 0 24 24"><path d="M4 4h16v16H4zM14 4v16M7 8h4M7 12h4"/></svg></button><button class="btn compact" id="checkFlowBtn" title="Check which blocks are ready for real cloud execution">✓ Check</button><button class="btn compact" id="saveFlow" title="Save workflow to Neon (with a local backup)">♡ Save</button><details class="studio-actions-menu"><summary class="btn compact">More ▾</summary><div class="studio-actions-popover"><button class="btn compact" id="workflowInputBtn" title="Set starting input">↳ Input</button><button class="btn compact" id="workflowGuideBtn" title="View the workflow guide and export its documentation">▤ Guide</button><button class="btn compact" id="openFlows" title="Saved workflows">◫ Open</button><button class="btn compact" id="exportFlow" title="Download workflow JSON">↓ JSON</button><button class="btn compact" id="importFlow" title="Import workflow JSON">↑ JSON</button><a href="./workflows.html" class="btn compact" style="text-decoration:none">All workflows</a></div></details><button class="btn compact" id="previewButton" title="Local simulation, no AI provider calls">◇ Preview</button><button class="btn dark" id="runButton"><svg class="icon" viewBox="0 0 24 24" style="width:15px;height:15px;fill:currentColor;stroke:none"><path d="M8 5v14l11-7z"/></svg><span class="run-text">Run in cloud</span></button></div>
+  <div class="top-actions"><span class="draft-status" id="draftStatus" aria-live="polite">Not saved</span><button class="btn icononly mobile-inspect" id="toggleInspector" aria-label="Open inspector"><svg class="icon" viewBox="0 0 24 24"><path d="M4 4h16v16H4zM14 4v16M7 8h4M7 12h4"/></svg></button><button class="btn compact" id="checkFlowBtn" title="Check which blocks are ready for real cloud execution">✓ Check</button><button class="btn compact" id="saveFlow" title="Save workflow to Neon (with a local backup)">♡ Save</button><details class="studio-actions-menu"><summary class="btn compact">More ▾</summary><div class="studio-actions-popover"><button class="btn compact" id="workflowInputBtn" title="Set starting input">↳ Input</button><button class="btn compact" id="workflowGuideBtn" title="View the workflow guide and export its documentation">▤ Guide</button><button class="btn compact" id="openFlows" title="Saved workflows">◫ Open</button><button class="btn compact" id="exportFlow" title="Download workflow JSON">↓ JSON</button><button class="btn compact" id="importFlow" title="Import workflow JSON">↑ JSON</button><a href="./workflows.html" class="btn compact" style="text-decoration:none">All workflows</a></div></details><button class="btn compact" id="previewButton" title="Local simulation, no AI provider calls">◇ Preview</button><label title="Use Cloud Tasks to run asynchronously; requires backend worker configuration" style="display:flex;align-items:center;gap:5px;font-size:12px"><input id="backgroundRun" type="checkbox" disabled> Background</label><button class="btn dark" id="runButton"><svg class="icon" viewBox="0 0 24 24" style="width:15px;height:15px;fill:currentColor;stroke:none"><path d="M8 5v14l11-7z"/></svg><span class="run-text">Run in cloud</span></button></div>
 </header>
 <div id="cloudRunMessage" role="status" aria-live="polite" hidden></div>
 <main class="app">
@@ -488,7 +488,7 @@ ${n.output==='image'?'<div class="field"><label class="field-label" for="nodeIma
 <div class="sep"></div>
 <div class="field"><label class="field-label" for="nodePrompt">Default prompt</label><textarea class="areabox" id="nodePrompt" rows="6" placeholder="What should this block do?">${safe(n.prompt)}</textarea><p class="field-hint">Instructions travel with this block.</p>${promptTokens(n)}${workflowGuideControl(n)}${promptPreviewHTML(n)}</div><div class="sep"></div>
 <div class="field"><label class="field-label" for="inputSource">Input source</label><select class="selectbox" id="inputSource"><option value="connected" ${n.source==='connected'?'selected':''}>From connected blocks</option><option value="workflow" ${n.source==='workflow'?'selected':''}>Original workflow input</option><option value="manual" ${n.source==='manual'?'selected':''}>Supplied separately</option></select></div>${n.source==='manual'?'<div class="field"><label class="field-label" for="nodeManualInput">Manual input for this block</label><textarea class="areabox" id="nodeManualInput" rows="3">'+safe(n.manualInput||'')+'</textarea></div>':''}
-<div class="field" ${n.source!=='connected'?'hidden':''}><label class="field-label" for="inputCombine">When multiple blocks connect</label><select class="selectbox" id="inputCombine"><option value="all" ${n.combine==='all'?'selected':''}>Combine all inputs</option><option value="first" ${n.combine==='first'?'selected':''}>First available</option><option value="latest" ${n.combine==='latest'?'selected':''}>Latest completed</option></select></div>
+<div class="field" ${n.source!=='connected'?'hidden':''}><label class="field-label" for="inputCombine">When multiple blocks connect</label><select class="selectbox" id="inputCombine"><option value="all" ${n.combine==='all'?'selected':''}>Combine all inputs</option><option value="first" ${n.combine==='first'?'selected':''}>First available</option><option value="latest" ${n.combine==='latest'?'selected':''}>Last connected result</option></select></div>
 <div class="field"><div class="field-label">Accepted input formats</div><div class="checkgrid">${FMT.map(v=>`<label class="checkitem"><input type="checkbox" data-accept="${v}" ${n.accept.includes(v)?'checked':''}>${v==='chat'?'Chat reply':v[0].toUpperCase()+v.slice(1)}</label>`).join('')}</div></div>
 <div class="rule-box ${r.invalid?'warn':''}"><b>${r.invalid?'⚠ Needs attention':'✓ Input rule'}</b><div style="margin-top:5px">${safe(r.note)}</div>${r.missing?'<div>Connect an upstream block or change source.</div>':''}${r.bad.length?`<div>Incompatible: ${r.bad.map(x=>safe(x.name)+' ('+formatOf(x)+')').join(', ')}</div>`:''}</div>
 <div class="field" style="margin-top:18px"><label class="field-label">Incoming connections <em>${r.incoming.length}</em></label>${r.incoming.map(v=>`<div class="connected-item">${icon(typeInfo(v.type).icon,14)}<span>${safe(v.name)}</span><em>${safe(formatOf(v))}</em></div>`).join('')||'<p class="field-hint">No connections yet.</p>'}</div><div class="sep"></div>
@@ -745,6 +745,12 @@ async function refreshCloudModels() {
   if(!window.MimoCloud?.authorized)return;
   try {cloudCapabilities=await window.MimoCloud.request('/v1/capabilities');}
   catch {cloudCapabilities={};}
+  const backgroundToggle=typeof document!=='undefined'?document.getElementById('backgroundRun'):null;
+  if(backgroundToggle){
+    backgroundToggle.disabled=cloudCapabilities?.run_api?.background_configured!==true;
+    if(backgroundToggle.disabled)backgroundToggle.checked=false;
+    backgroundToggle.title=backgroundToggle.disabled?'Cloud Tasks background worker is not configured':'Start a persistent background execution';
+  }
   try {cloudModels=await window.MimoCloud.request('/v1/models');}
   catch(e){cloudModels=[];toast('Model registry unavailable: '+e.message);}
 }
@@ -890,12 +896,18 @@ async function runCloud(){
       cloudInput={kind:'mimo_image_artifact',artifact_id:state.initialCloudArtifact,
                   text:state.initial.text||''};
     }
+    const background=typeof document!=='undefined'&&document.getElementById('backgroundRun')?.checked===true;
     const persisted=await window.MimoCloud.request('/v1/runs/drafts',{
-      method:'POST',body:{workflow:graph,input:cloudInput,background:false}
+      method:'POST',body:{workflow:graph,input:cloudInput,background}
     });
     if(!persisted?.id)throw Error('The backend did not return a persistent run ID.');
     state.lastCloudRunId=persisted.id;
     const output=persisted.output||{};
+    if(persisted.status==='queued' || persisted.status==='running' || persisted.status==='started'){
+      state.lastRun=new Date();state.lastRunKind='cloud';
+      showCloudRunStatus('Background run '+persisted.id+' is '+persisted.status+'. Open Runs & reviews to inspect progress and results.');
+      return;
+    }
     if(persisted.status!=='completed'){
       throw Error('Run '+persisted.id+' ended in state '+persisted.status+
         '. Open Runs & reviews to inspect checkpoints and errors.');
