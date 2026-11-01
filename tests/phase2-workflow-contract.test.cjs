@@ -44,10 +44,16 @@ test("Numeric router config preserves comparison and JSON field",()=>{
   assert.deepEqual(config.rules,[{op:">=",threshold:"0.8",port:"yes"}]);
 });
 
-test("Unsupported settings fail visibly instead of silently dropping",()=>{
+test("Input source, combination and manual input are preserved",()=>{
   const flow=makeFlow({id:"b2",type:"tool",execution:"tool",toolKind:"trim",name:"Trim",source:"workflow"});
-  assert.ok(bridge.runIssues(flow,[]).some(x=>x.includes("Input source workflow")));
+  assert.deepEqual(bridge.runIssues(flow,[]),[]);
+  assert.equal(bridge.toBackend(flow,"wf_math",[]).nodes[1].config.input_source,"workflow");
   flow.nodes[1].source="connected";
   flow.nodes[1].combine="latest";
-  assert.ok(bridge.runIssues(flow,[]).some(x=>x.includes("Input combination latest")));
+  assert.deepEqual(bridge.runIssues(flow,[]),[]);
+  assert.equal(bridge.toBackend(flow,"wf_math",[]).nodes[1].config.input_combine,"latest");
+  flow.nodes[1].source="manual";
+  assert.ok(bridge.runIssues(flow,[]).some(x=>x.includes("Manual input is empty")));
+  flow.nodes[1].manualInput="2x+3=7";
+  assert.deepEqual(bridge.runIssues(flow,[]),[]);
 });
