@@ -23,8 +23,19 @@
 7. Sign in with your whitelisted Firebase account. The page checks `GET /v1/me`
    before allowing Studio use.
 
-**Backend dependency:** Merge and deploy the accompanying backend Studio drafts PR:
+**Backend dependency:** The Studio drafts backend PR #3 is merged into `mimo-backend/main`; ensure the matching Cloud Run revision has deployed. It provides:
 `GET /v1/workflows` lists your saved workflows, `POST/PATCH` can save unfinished canvases, and `DELETE /v1/workflows/{id}` deletes unpublished drafts. Publish and execute still perform full graph validation.
+
+## Page directory
+
+| Page | Purpose |
+| --- | --- |
+| `index.html` | Overview and service health |
+| `studio.html` | Focused drag-and-drop workflow editor and block builder |
+| `workflows.html` | Cloud drafts, versions and publishing |
+| `models.html` | AI model connection and provider pricing management |
+| `access.html` | API projects, one-time keys, grants and endpoint templates |
+| `budgets.html` | Usage and cost policies |
 
 ## Features and limits
 
