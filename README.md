@@ -37,6 +37,26 @@
 | `access.html` | API projects, one-time keys, grants and endpoint templates |
 | `budgets.html` | Usage and cost policies |
 
+## Connect the first real AI provider and Execution API
+
+The backend already supports real OpenAI-compatible text completions and chained AI blocks. This UI release adds:
+
+- **AI Models → Quick provider setup**: OpenRouter free, Groq, or custom provider. The dropdown only fills nonsecret fields; create a provider API key separately in the provider dashboard.
+- **Studio → Build real AI chain**: constructs Input → Extraction AI → Proofreading AI → Output, using the first enabled configured text model in the backend registry. Running it makes actual provider calls and may consume credits.
+- **Studio block inspector → Connected backend model**: choose the internal model ID stored in Neon (not a demo-provider suggestion).
+- **API Access → Verify service**: checks `GET /health/service` returns `role=execution`, then `/health/ready` confirms DB/storage. No credentials are sent in the probe. Endpoint copy requires verification, but a health check is **not** an authenticated end-to-end workflow test.
+
+**Backend dependency:** [mimo-backend PR #5](https://github.com/azmath25/mimo-backend/pull/5) adds the role health endpoint and includes the browser-only setup guide at [docs/REAL_AI_AND_EXECUTION_CLOUD_RUN.md](https://github.com/azmath25/mimo-backend/blob/feature/real-agents-execution-readiness/docs/REAL_AI_AND_EXECUTION_CLOUD_RUN.md).
+
+Setup requires manual actions in your own accounts:
+1. Put a provider key in Google Secret Manager; reference it as `MIMO_SECRET_OPENROUTER` (or another chosen name) in Studio's Cloud Run service.
+2. Register that model with the matching `secret_ref` in Mimo's AI Models page, then click **Test**.
+3. Create a second Cloud Run service with the **same deployed backend image**, `MIMO_API_ROLE=execution`, migrations off, shared Neon/GCS and provider secrets.
+4. Paste the actual execution-service HTTPS origin into Mimo API Access and **Verify service**.
+5. Publish a workflow version, create a project key, grant it run permission, and call its endpoint from a trusted server.
+
+Only your **server-side** Firebase Function or other backend may hold the one-time project API key. Never embed it in GitHub Pages HTML/JavaScript. Keep `background=false` while the Cloud Tasks worker is disabled. One execution Cloud Run service handles all published workflow IDs.
+
 ## Features and limits
 
 - **Save:** writes a browser backup first, then a cloud draft to Neon. A failure is shown explicitly, never disguised as success.

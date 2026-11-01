@@ -25,11 +25,11 @@
 <div class="mg-section"><h2>3. Generate a workflow API address</h2></div>
 <section class="mg-card"><div class="mg-fields">
  <div class="mg-field span"><label for="executionOrigin">Execution Cloud Run service URL (HTTPS)</label><input id="executionOrigin" type="url" placeholder="https://your-execution-service.europe-west1.run.app" autocomplete="off">
- <span class="mg-hint">Only enter the separate execution service, not the current Mimo Studio service. An entered URL is not proof that it is running.</span></div>
+ <span class="mg-hint">Only enter the separate execution service, not the current Mimo Studio service. Use Verify service to check its role and database/storage health. The check sends no credentials, and does not test an individual API key.</span></div>
  <div class="mg-field"><label for="endpointWorkflow">Workflow</label><select id="endpointWorkflow"></select></div>
  <div class="mg-field"><label for="endpointVersion">Published version</label><select id="endpointVersion"></select></div>
 </div>
-<div class="mg-actions"><span class="mg-pill warn" id="endpointStatus">Execution service not configured</span><button class="mg-btn" type="button" id="copyEndpoint" disabled>Copy endpoint</button><button class="mg-btn" type="button" id="copyRequest" disabled>Copy request example</button></div>
+<div class="mg-actions"><button class="mg-btn primary" type="button" id="verifyExecution">Verify service</button><span class="mg-pill warn" id="endpointStatus">Execution service not configured</span><button class="mg-btn" type="button" id="copyEndpoint" disabled>Copy endpoint</button><button class="mg-btn" type="button" id="copyRequest" disabled>Copy request example</button></div>
 <div class="mg-stat" style="margin:24px 0 8px">HTTP ENDPOINT</div><pre id="endpointPreview" class="mg-pre">Configure an execution service and publish a workflow to generate an address.</pre>
 <div class="mg-stat" style="margin:20px 0 8px">OTHER EXECUTION ROUTES</div>
 <div class="mg-grid two">
