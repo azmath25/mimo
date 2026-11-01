@@ -42,6 +42,7 @@
       await loadVersions("endpointWorkflow","endpointVersion");
       const ver=url.searchParams.get("version");
       if(ver&&Array.from($("endpointVersion").options).some(x=>x.value===ver))$("endpointVersion").value=ver;
+      if(ver&&Array.from($("grantVersion").options).some(x=>x.value===ver))$("grantVersion").value=ver;
       updateEndpoint();
     }catch(error){msg("endpointFeedback","Failed to load saved workflows: "+error.message,true)}
   }
@@ -75,6 +76,8 @@
     status.className="mg-pill warn";
     $("copyEndpoint").disabled=!ready;$("copyRequest").disabled=!ready;
     $("endpointPreview").textContent=endpoint||"Configure a separate execution service, then select a published workflow version.";
+    $("streamPreview").textContent=ready?origin.url+"/v1/workflows/"+encodeURIComponent(id)+"/stream":"—";
+    $("statusPreview").textContent=ready?origin.url+"/v1/runs/{run_id}":"—";
     requestExample=ready?
       "curl -X POST '"+endpoint+"' \\\n"+
       "  -H 'Authorization: Bearer YOUR_PROJECT_API_KEY' \\\n"+
