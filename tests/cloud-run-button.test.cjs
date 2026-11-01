@@ -32,8 +32,9 @@ function harness(options = {}) {
   const ctx = {
     state,
     $:selector => {
-      if (!nodes.has(selector)) throw Error("Unknown DOM selector " + selector);
-      return nodes.get(selector);
+      const key=selector.replace(/^#/, "");
+      if (!nodes.has(key)) throw Error("Unknown DOM selector " + selector);
+      return nodes.get(key);
     },
     window: {
       MimoCloud: {authorized: options.authorized !== false, request: (...args)=>requestFn(...args)},
