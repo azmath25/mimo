@@ -59,8 +59,8 @@ test("static studio scripts parse, auth is required, and v3.3 canvas is retained
   assert.match(html,/id="checkFlowBtn"/);
   assert.match(html,/id="quickStartWorkflow"/);
   assert.match(html,/id="draftRecovery"/);
-  assert.match(html,/cloud-results\\.js/);
-  assert.match(html,/mimo\\.recovery\\.v1/);
+  assert.match(html,/cloud-results\.js/);
+  assert.match(html,/mimo\.recovery\.v1/);
   const code=html.match(/<script>\s*([\s\S]*?)<\/script>/)?.[1];
   assert.ok(code && code.length>50000);
   assert.doesNotThrow(()=>new vm.Script(code));
