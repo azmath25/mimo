@@ -37,13 +37,15 @@ async function request(path, options = {}) {
   const token = await auth.currentUser.getIdToken();
   const headers = new Headers(options.headers || {});
   headers.set("Authorization", "Bearer " + token);
-  if (options.body !== undefined) headers.set("Content-Type", "application/json");
+  const multipart = options.body instanceof FormData;
+  if (options.body !== undefined && !multipart) headers.set("Content-Type", "application/json");
+  // Never set multipart Content-Type manually: the browser supplies its boundary.
   let response;
   try {
     response = await fetch(API_ORIGIN + path, {
       ...options,
       headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body)
+      body: options.body === undefined ? undefined : multipart ? options.body : JSON.stringify(options.body)
     });
   } catch {
     throw Error("Cannot connect to the Mimo API. Check Cloud Run and MIMO_CORS_ORIGINS.");
@@ -56,7 +58,19 @@ async function request(path, options = {}) {
   }
   return data;
 }
-const cloud = { apiOrigin: API_ORIGIN, authorized: false, user: null, request };
+async function uploadArtifact(file) {
+  if (!(file instanceof File)) throw Error("Select an image file first.");
+  if (!["image/png", "image/jpeg"].includes(file.type)) {
+    throw Error("Cloud vision currently supports PNG and JPEG images only. PDFs need a separate page-ingestion step.");
+  }
+  if (!file.size || file.size > 10 * 1024 * 1024) {
+    throw Error("The image must be between 1 byte and 10 MiB.");
+  }
+  const form = new FormData();
+  form.append("file", file, file.name);
+  return request("/v1/artifacts", {method: "POST", body: form});
+}
+const cloud = { apiOrigin: API_ORIGIN, authorized: false, user: null, request, uploadArtifact };
 window.MimoCloud = cloud;
 
 login.addEventListener("submit", async event => {
