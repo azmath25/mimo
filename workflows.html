@@ -4,6 +4,15 @@
 <section class="mg-hero"><div><span class="mg-eyebrow">Library / Versions</span><h1>Your workflows</h1><p>All saved cloud drafts, without canvas clutter. Open a workflow in Studio, publish a validated version, or inspect existing releases.</p></div>
 <a class="mg-btn primary" href="./studio.html">+ Design workflow ↗</a></section>
 <div class="mg-alert">A <strong>draft</strong> can be incomplete and changed freely. A <strong>published version</strong> is immutable and can be granted to an API project. Publishing does not automatically create an execution service.</div>
+<section class="mg-card" style="margin-bottom:22px">
+  <div class="mg-section"><h2>Mathematical AI workflow test</h2></div>
+  <p>Create a six-node draft for problem extraction, independent verification, TikZ diagram generation and PNG compilation. Select an enabled text model first. This does not publish or run the workflow, so no AI charges occur until you test it.</p>
+  <div class="mg-actions" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px">
+    <label for="mathDemoModel">Text model</label>
+    <select id="mathDemoModel" class="mg-btn" style="max-width:320px"><option value="">Loading models…</option></select>
+    <button id="createMathDemo" class="mg-btn primary" type="button" disabled>Create math demo draft</button>
+  </div>
+</section>
 <div class="mg-section"><h2>Cloud workflow library <span id="workflowCount" class="mg-pill">—</span></h2><button id="refreshWorkflows" class="mg-btn small">↻ Refresh</button></div>
 <div id="workflowFeedback" class="mg-feedback" role="status" aria-live="polite"></div>
 <div id="workflowList" class="mg-list"><div class="mg-empty">Loading saved workflows…</div></div>
