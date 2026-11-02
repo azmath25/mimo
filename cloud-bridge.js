@@ -88,7 +88,9 @@
     return {
       schema_version: 1, workflow_id: id, title: String(flow.name || "Untitled workflow"),
       inputs: {mimo_ui: flow},
-      outputs: {}, nodes, edges
+      outputs: flow.outputContract === "quizer.problems.v1"
+        ? {contract:"quizer.problems.v1",source_node:String(flow.outputSource||"")}
+        : {}, nodes, edges
     };
   }
   function fromBackend(definition) {
@@ -104,12 +106,15 @@
       maxTokens: n.config?.max_tokens || 1024,
       toolKind: n.config?.tool === "upper" ? "uppercase" : n.config?.tool === "lower" ? "lowercase" : n.config?.tool || "trim",
       branches: asArray(n.config?.ports).map(port => ({id:port,label:port,op:"==",value:""})),
-      accept: ["text","document","image","chat"], output: "text"
+      accept: ["text","document","image","chat"], output: n.config?.response?.kind || "text"
     }));
     return {
       kind:"mimo/workflow", version:4, name:definition?.title || "Imported cloud workflow",
       nodes, edges:asArray(definition?.edges).map(e=>({from:e.source,to:e.target,...(e.source_port && e.source_port !== "out" ? {branchId:e.source_port} : {})})),
-      initialInput:{format:"text",text:"",fileName:""}, workflowGoal:"", customBlocks:{}
+      initialInput:{format:"text",text:"",fileName:""}, workflowGoal:"", customBlocks:{},
+      ...(definition?.outputs?.contract === "quizer.problems.v1" ? {
+        outputContract:"quizer.problems.v1",outputSource:definition.outputs.source_node
+      } : {})
     };
   }
   function runIssues(flow, models, capabilities = {}) {
@@ -131,6 +136,13 @@
       if(!byId.has(edge.from)||!byId.has(edge.to)){
         errors.push("A connection references a block that no longer exists.");
       }
+    }
+    if (flow?.outputContract === "quizer.problems.v1") {
+      const source = nodes.find(n => n.id === flow.outputSource);
+      if (!source || backendType(source) !== "ai" || source.output !== "json")
+        errors.push("Quizer output contract requires a JSON AI source block.");
+      if (!edges.some(e => e.from === flow.outputSource && nodes.some(n => n.id === e.to && backendType(n) === "output")))
+        errors.push("Connect the Quizer JSON source block directly to an Output block.");
     }
     for (const n of nodes) {
       const type = backendType(n);

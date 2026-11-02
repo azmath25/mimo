@@ -14,6 +14,16 @@
         ? textModels.map(m=>'<option value="'+MimoSite.safe(m.id)+'">'+MimoSite.safe(m.display_name||m.id)+'</option>').join("")
         : '<option value="">No enabled text model available</option>';
       $("createMathDemo").disabled=!textModels.length;
+      // Extraction needs a vision-capable first model and a JSON-capable reviewer.
+      const ready=models.filter(m=>m.enabled && m.secret_configured && m.capabilities?.text!==false);
+      const vision=ready.filter(m=>m.capabilities?.image_understanding);
+      $("quizerVisionModel").innerHTML=vision.length
+        ?vision.map(m=>'<option value="'+MimoSite.safe(m.id)+'">'+MimoSite.safe(m.display_name||m.id)+'</option>').join("")
+        :'<option value="">No configured vision model</option>';
+      $("quizerAuditModel").innerHTML=ready.length
+        ?ready.map(m=>'<option value="'+MimoSite.safe(m.id)+'">'+MimoSite.safe(m.display_name||m.id)+'</option>').join("")
+        :'<option value="">No configured reviewer</option>';
+      $("createQuizerDraft").disabled=!vision.length||!ready.length;
 
       $("workflowCount").textContent=String(workflows.length);
       const safe=esc();
@@ -128,6 +138,70 @@
       await refresh();
     }catch(error){info(error.message,true)}
     finally{busy=false;$("createMathDemo").disabled=false}
+  });
+  function quizerExample(visionId, reviewerId) {
+    // A single image (or selected PDF vision page) enters this template per run.
+    // Multi-page orchestration belongs to the trusted caller, not the browser.
+    const extractPrompt = [
+      "Transcribe ALL mathematical questions visible on this ONE page exactly.",
+      "Preserve expressions and option order. Return only a JSON object with:",
+      '{"schema":"quizer.problems.v1","title":"Page questions","questions":[',
+      '{"question_type":"multiple_choice|short_answer|written","statement_latex":"...",',
+      '"options":[{"label":"A","latex":"..."},{"label":"B","latex":"..."}],',
+      '"answer":"A" or null,"points":1,"review_required":true or false}]}',
+      "For short answers, answer is a string or null and options is [].",
+      "For written responses, answer must be null.",
+      "Never invent missing text, figures, solutions or answer keys.",
+      "If a multiple-choice answer cannot be verified from the problem, set answer=null",
+      "and review_required=true. Return 1–100 questions per run.",
+      "If a diagram matters, explain it in statement_latex and require teacher review.",
+      "Do not wrap JSON in Markdown fences. INPUT: {{inputs.1}}"
+    ].join("\n");
+    const auditPrompt = [
+      "You are a strict independent math OCR and answer-key reviewer.",
+      "Input is the extractor JSON below. Fix mathematical transcription errors",
+      "only where they are unambiguous. Independently verify any answer key.",
+      "Keep exactly the quizer.problems.v1 shape, option letters A,B,... and",
+      "all questions. Change uncertain answers to null and review_required=true.",
+      "Never claim to have seen a source diagram if not described in the input.",
+      "Output only valid JSON (no code fence): {{inputs.1}}"
+    ].join("\n");
+    const ui={
+      kind:"mimo/workflow",version:4,name:"Quizer · page extraction + audit",
+      workflowGoal:"One image/PDF page into a strictly validated, teacher-reviewable Quizer problem batch",
+      initialInput:{format:"text",text:"",fileName:""},
+      outputContract:"quizer.problems.v1",outputSource:"audit",
+      nodes:[
+        {id:"input",type:"input",name:"Page input",x:60,y:130,
+         accept:["text","document","image"],output:"text"},
+        {id:"extract",type:"spark",execution:"ai",name:"Faithful extraction",
+         x:380,y:130,model:visionId,output:"json",maxTokens:8192,prompt:extractPrompt},
+        {id:"audit",type:"spark",execution:"ai",name:"Math and grammar audit",
+         x:700,y:130,model:reviewerId,output:"json",maxTokens:8192,prompt:auditPrompt},
+        {id:"output",type:"output",name:"Quizer checked output",x:1020,y:130}
+      ],
+      edges:[{from:"input",to:"extract"},{from:"extract",to:"audit"},
+             {from:"audit",to:"output"}],customBlocks:{}
+    };
+    return window.MimoBridge.toBackend(ui,"quizer_page_extract_v1",models);
+  }
+  $("createQuizerDraft").addEventListener("click",async()=>{
+    if(busy||!MimoSite.requireCloud())return;
+    const visionId=$("quizerVisionModel").value,reviewerId=$("quizerAuditModel").value;
+    const vision=models.find(m=>m.id===visionId&&m.enabled&&m.secret_configured&&m.capabilities?.image_understanding);
+    const reviewer=models.find(m=>m.id===reviewerId&&m.enabled&&m.secret_configured&&m.capabilities?.text!==false);
+    if(!vision||!reviewer)return info("Choose configured vision and reviewer models first.",true);
+    const definition=quizerExample(visionId,reviewerId);
+    if(workflows.some(w=>w.id===definition.workflow_id))
+      return info("Quizer draft already exists. Open it in Studio to review prompts.",true);
+    busy=true;$("createQuizerDraft").disabled=true;
+    try {
+      await MimoSite.api("/v1/workflows/validate",{method:"POST",body:definition});
+      await MimoSite.api("/v1/workflows",{method:"POST",body:definition});
+      info("Quizer draft created. Inspect and test with a single image in Studio. Publishing and API grants remain separate.");
+      await refresh();
+    }catch(error){info(error.message,true)}
+    finally{busy=false;$("createQuizerDraft").disabled=false}
   });
   $("refreshWorkflows").addEventListener("click",refresh);
   MimoSite.whenReady(refresh);
