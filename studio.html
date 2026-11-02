@@ -1004,7 +1004,6 @@ async function runCloud(){
     }
   }
 }
-restoreLinkedPdfFromUrl();
 const pageImageArtifact=typeof URL!=='undefined'&&typeof location!=='undefined' ? new URL(location.href).searchParams.get('image_artifact') : null;
 if(pageImageArtifact && /^[0-9a-f-]{36}$/i.test(pageImageArtifact)){
   state.initialCloudArtifact=pageImageArtifact;
@@ -1014,6 +1013,7 @@ if(pageImageArtifact && /^[0-9a-f-]{36}$/i.test(pageImageArtifact)){
 }
 if(state.initialCloudMediaType==='application/pdf')toast('PDF artifact linked from Files. Choose text or vision-page mode in Workflow input.');
 $('#runButton').addEventListener('click',runCloud);
+restoreLinkedPdfFromUrl();
 $('#clearInitialFile').addEventListener('click',()=>{
   const text=$('#initialText').value;
   state.initialFile=null;state.initialCloudArtifact=null;state.initialCloudMediaType=null;
