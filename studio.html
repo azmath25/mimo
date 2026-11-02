@@ -817,12 +817,20 @@ function populateInputDialog(){
 }
 function restoreLinkedPdfFromUrl(){
   if(typeof location==='undefined')return;
-  const pdfId=new URL(location.href).searchParams.get('pdf_artifact');
-  if(!pdfId||!/^[0-9a-f-]{36}$/i.test(pdfId))return;
-  state.initialCloudArtifact=pdfId;
-  state.initialCloudMediaType='application/pdf';
-  state.initialFile=null;
-  state.initial={...state.initial,format:'document',fileName:'',pdfMode:state.initial.pdfMode||'text',pdfPage:state.initial.pdfPage||1};
+  const params=new URL(location.href).searchParams;
+  const pdfId=params.get('pdf_artifact');
+  const imageId=params.get('image_artifact');
+  if(pdfId&&/^[0-9a-f-]{36}$/i.test(pdfId)){
+    state.initialCloudArtifact=pdfId;
+    state.initialCloudMediaType='application/pdf';
+    state.initialFile=null;
+    state.initial={...state.initial,format:'document',fileName:'',pdfMode:state.initial.pdfMode||'text',pdfPage:state.initial.pdfPage||1};
+  }else if(imageId&&/^[0-9a-f-]{36}$/i.test(imageId)){
+    state.initialCloudArtifact=imageId;
+    state.initialCloudMediaType='image/png';
+    state.initialFile=null;
+    state.initial={...state.initial,format:'image',text:'Transcribe this PDF page faithfully, preserving mathematical notation.',fileName:''};
+  }
 }
 function applyInput(){
   const oldFormat=state.initial.format;
@@ -1004,16 +1012,7 @@ async function runCloud(){
     }
   }
 }
-const pageImageArtifact=typeof URL!=='undefined'&&typeof location!=='undefined' ? new URL(location.href).searchParams.get('image_artifact') : null;
-if(pageImageArtifact && /^[0-9a-f-]{36}$/i.test(pageImageArtifact)){
-  state.initialCloudArtifact=pageImageArtifact;
-  state.initialCloudMediaType='image/png';
-  state.initial={format:'image',text:'Transcribe the math on this PDF page precisely; preserve notation.',fileName:''};
-  toast('PDF page vision artifact linked. Connect Input to a vision-capable AI model and Run in cloud.');
-}
-if(state.initialCloudMediaType==='application/pdf')toast('PDF artifact linked from Files. Choose text or vision-page mode in Workflow input.');
 $('#runButton').addEventListener('click',runCloud);
-restoreLinkedPdfFromUrl();
 $('#clearInitialFile').addEventListener('click',()=>{
   const text=$('#initialText').value;
   state.initialFile=null;state.initialCloudArtifact=null;state.initialCloudMediaType=null;
@@ -1109,6 +1108,7 @@ const savedBlocks=storage(customKey);if(savedBlocks&&typeof savedBlocks==='objec
 refreshTypes();const flows=storage(workflowKey);if(Array.isArray(flows))state.savedFlows=flows.filter(v=>v&&typeof v.id==='string'&&(v.cloud||(v.data&&Array.isArray(v.data.nodes)))).slice(0,150);buildTemplates();builderDefaults();renderBuilderSaved();
 // Minimal starter canvas. More complex examples are opt-in, not loaded by default.
 state.initial={format:'text',text:'',fileName:''};
+restoreLinkedPdfFromUrl();
 const input=makeNode('input',80,210,{name:'Input',summary:'Configure the starting material.'});
 const collect=makeNode('output',445,210,{name:'Output',summary:'Collect connected results.'});
 state.nodes.push(input,collect);
