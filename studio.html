@@ -838,6 +838,12 @@ function applyInput(){
   const selectedFormat=$('#initialFormat').value;
   const mode=$('#pdfMode').value;
   const page=Number($('#pdfPage').value);
+  const selectedIsPdf=isPdfInputFile(file)||(!file&&hasPdfInput());
+  if(selectedIsPdf&&mode==='vision_page'&&
+     (!Number.isInteger(page)||page<1||page>100)){
+    toast('PDF vision requires an integer page number from 1 to 100.');
+    return;
+  }
   state.initial={
     format:selectedFormat,text:$('#initialText').value,
     fileName:file?file.name:(state.initialFile?state.initialFile.name:state.initial.fileName||''),
