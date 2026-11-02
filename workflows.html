@@ -13,6 +13,18 @@
     <button id="createMathDemo" class="mg-btn primary" type="button" disabled>Create math demo draft</button>
   </div>
 </section>
+<section class="mg-card" style="margin-bottom:22px">
+  <div class="mg-section"><h2>Quizer extraction integration (draft only)</h2></div>
+  <p>Create a tested-shape, single-page vision → independent JSON audit → Output workflow. Its response uses <code>quizer.problems.v1</code> and explicitly flags unknown answers for teacher review. It does not process an entire PDF in one invocation, publish, run or grant any API access.</p>
+  <div class="mg-actions" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px">
+    <label for="quizerVisionModel">Vision model</label>
+    <select id="quizerVisionModel" class="mg-btn" style="max-width:260px"><option value="">Loading…</option></select>
+    <label for="quizerAuditModel">Audit model</label>
+    <select id="quizerAuditModel" class="mg-btn" style="max-width:260px"><option value="">Loading…</option></select>
+    <button id="createQuizerDraft" class="mg-btn primary" type="button" disabled>Create Quizer draft</button>
+  </div>
+  <p class="mg-hint">After testing in Studio, publish an immutable version and grant a dedicated Quizer API project. Keep project keys on Quizer's server; do not send them to the browser.</p>
+</section>
 <div class="mg-section"><h2>Cloud workflow library <span id="workflowCount" class="mg-pill">—</span></h2><button id="refreshWorkflows" class="mg-btn small">↻ Refresh</button></div>
 <div id="workflowFeedback" class="mg-feedback" role="status" aria-live="polite"></div>
 <div id="workflowList" class="mg-list"><div class="mg-empty">Loading saved workflows…</div></div>
