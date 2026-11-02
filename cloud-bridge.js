@@ -92,7 +92,8 @@
     return {
       schema_version: 1, workflow_id: id, title: String(flow.name || "Untitled workflow"),
       inputs: {mimo_ui: flow},
-      outputs: {exports: asArray(flow.apiExports).map(e=>({...e}))}, nodes, edges
+      outputs: {exports: asArray(flow.apiExports).map(e=>({...e})),
+                ...(flow.parallelExecution===true?{execution_mode:"parallel"}:{})}, nodes, edges
     };
   }
   function fromBackend(definition) {
@@ -119,7 +120,8 @@
       kind:"mimo/workflow", version:4, name:definition?.title || "Imported cloud workflow",
       nodes, edges:asArray(definition?.edges).map(e=>({from:e.source,to:e.target,...(e.source_port && e.source_port !== "out" ? {branchId:e.source_port} : {})})),
       initialInput:{format:"text",text:"",fileName:""}, workflowGoal:"", customBlocks:{},
-      apiExports:asArray(definition?.outputs?.exports)
+      apiExports:asArray(definition?.outputs?.exports),
+      parallelExecution:definition?.outputs?.execution_mode==="parallel"
     };
   }
   function runIssues(flow, models, capabilities = {}) {
