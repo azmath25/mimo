@@ -38,15 +38,33 @@
      '<div class="mg-metric-label">'+Number(m.calls||0)+' calls · '+Number(m.input_tokens||0).toLocaleString()+' input tokens · '+Number(m.output_tokens||0).toLocaleString()+' output tokens</div></div>'
    ).join(""):'<div class="mg-empty">No provider usage recorded yet.</div>';
  }
+ function renderReservations(data){
+   const box=$("budgetReservations"),summary=$("reservationSummary");
+   if(data.unavailable){
+     summary.textContent="Backend endpoint unavailable";
+     box.innerHTML='<div class="mg-empty">Reservation visibility requires the Alternative B backend. '+safe()(data.unavailable)+'</div>';
+     return;
+   }
+   const count=Number(data.reservation_count||0),amount=Number(data.total_reserved_usd||0);
+   summary.textContent=count+" pending/uncertain holds · "+MimoSite.currency(amount)+" estimated";
+   box.innerHTML=(data.items||[]).length?(data.items||[]).map(r=>
+     '<article class="mg-row"><div class="mg-row-body"><strong>'+
+     safe()(r.model_id)+' · '+safe()(r.project_id||"admin")+
+     ' <span class="mg-pill '+(r.status==="uncertain"?"warn":"")+'">'+safe()(r.status)+'</span></strong>'+
+     '<small>'+MimoSite.currency(r.amount_usd)+' reserved · '+safe()(r.node_id||"model test")+
+     ' · '+safe()(MimoSite.date(r.created_at))+'</small></div></article>'
+   ).join(""):'<div class="mg-empty">No outstanding reservations.</div>';
+ }
  async function refresh(){
    if(!MimoSite.requireCloud())return;
    try{
-     const [p,u,m,raw,pr]=await Promise.all([
+     const [p,u,m,raw,pr,holds]=await Promise.all([
        MimoSite.api("/v1/budgets"),MimoSite.api("/v1/usage/dashboard"),
-       MimoSite.api("/v1/models"),MimoSite.api("/v1/usage"),MimoSite.api("/v1/projects")
+       MimoSite.api("/v1/models"),MimoSite.api("/v1/usage"),MimoSite.api("/v1/projects"),
+       MimoSite.api("/v1/budgets/reservations").catch(error=>({unavailable:error.message}))
      ]);
      policies=p.policies||[];usage=u.by_model||[];projectUsage=u.by_project||[];models=m||[];projects=(pr.projects||[]).filter(p=>!p.revoked);
-     renderUsage();renderPolicies();selectModels();selectProjects();
+     renderUsage();renderPolicies();selectModels();selectProjects();renderReservations(holds);
      $("usageCalls").innerHTML=(raw.calls||[]).slice(0,30).map(c=>
        '<tr><td>'+safe()(c.model_id)+'</td><td>'+Number(c.input_tokens||0).toLocaleString()+'</td>'+
        '<td>'+Number(c.output_tokens||0).toLocaleString()+'</td><td>'+MimoSite.currency(c.cost_usd)+'</td></tr>'
