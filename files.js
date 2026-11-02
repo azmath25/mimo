@@ -63,6 +63,10 @@ $("fileUploadForm").addEventListener("submit",async e=>{
 $("fileList").addEventListener("click",e=>{const row=e.target.closest("[data-file]");if(row)choose(row.dataset.file)});
 $("ingestFile").addEventListener("click",ingest);
 $("renderPage").addEventListener("click",pageImage);
+$("usePdfInStudio").addEventListener("click",()=>{
+ if(!selected||selected.media_type!=="application/pdf")return;
+ location.href="./studio.html?pdf_artifact="+encodeURIComponent(selected.id);
+});
 $("toStudio").addEventListener("click",pageToStudio);
 $("deleteFile").addEventListener("click",async()=>{
  if(!selected)return;
