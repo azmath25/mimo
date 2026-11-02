@@ -11,6 +11,7 @@
     ["diagnostics.html","Diagnostics","diagnostics"],
     ["models.html","AI models","models"],
     ["access.html","API access","access"],
+    ["connectors.html","Connectors","connectors"],
     ["budgets.html","Budgets & usage","budgets"]
   ];
   const current=document.body.dataset.page||"overview";
