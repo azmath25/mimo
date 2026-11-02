@@ -16,11 +16,11 @@
   <div class="mg-fields">
     <div class="mg-field"><label for="budgetScope">Applies to</label><select id="budgetScope"><option value="global">All models (global)</option><option value="model">One registered model</option><option value="project">One external API project</option></select></div>
     <div class="mg-field" id="budgetModelWrap" hidden><label for="budgetModel">Model ID</label><select id="budgetModel"></select></div><div class="mg-field" id="budgetProjectWrap" hidden><label for="budgetProject">API project</label><select id="budgetProject"></select></div>
-    <div class="mg-field"><label for="budgetHard">Hard threshold (USD)</label><input id="budgetHard" required type="number" min="0.01" step="0.01" placeholder="10.00"></div>
+    <div class="mg-field"><label for="budgetHard">Hard threshold (USD)</label><input id="budgetHard" required type="number" min="0" step="0.01" placeholder="10.00"></div>
     <div class="mg-field"><label for="budgetSoft">Warning threshold (USD)</label><input id="budgetSoft" required type="number" min="0" step="0.01" value="0"></div>
   </div>
   <div class="mg-actions"><button class="mg-btn primary" type="submit" id="saveBudget">Save policy</button></div>
-  <p class="mg-hint">Saving the same scope and model ID updates the existing policy. A soft limit is informational in the current backend; a hard limit blocks subsequent calls after the recorded spend reaches the threshold.</p>
+  <p class="mg-hint">Saving the same scope and model ID updates the existing policy. A hard limit of $0 pauses new calls. Soft limits are informational; active estimated reservations also count toward admission.</p>
   <div class="mg-feedback" id="budgetFeedback" role="status" aria-live="polite"></div>
 </form></div>
 <div class="mg-section"><h2>Usage by model</h2></div>
