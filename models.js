@@ -115,9 +115,9 @@
    const key=ref?"MIMO_SECRET_"+ref.toUpperCase().replace(/-/g,"_"):"MIMO_SECRET_…";
    $("modelSecretEnv").value=key;
    const reuse=models.some(m=>m.secret_ref===ref&&m.secret_configured);
-   $("modelSecretHint").textContent=!ref?"Choose a secret reference, never the API key.":
-      reuse?"A registered model already uses this attached secret — no new Cloud Run key needed.":
-      "If this key reference is not yet attached to Cloud Run, add "+key+" in Secret Manager once.";
+   $("modelSecretHint").textContent=!ref?"Choose a reference, then configure its API key in the secure form.":
+      reuse?"A registered model already uses this configured key reference.":
+      "After registering, use Manage key to securely store the provider key.";
  }
  function clear(){
    editing=null;$("modelForm").reset();$("modelPreset").disabled=false;$("modelPreset").value="";$("modelId").disabled=false;
@@ -177,7 +177,7 @@
        (m.capabilities?.image_understanding?' · vision':'')+
        (m.capabilities?.image_generation?' · images':'')+'</small></div>'+
       '<div class="mg-row-actions"><button class="mg-btn small" data-action="edit">Edit</button>'+
-      '<button class="mg-btn small" data-action="clone" title="Copy configuration and reuse the attached provider key">Duplicate</button>'+
+      '<button class="mg-btn small" data-action="clone" title="Copy configuration and reuse the attached provider key">Duplicate</button><button class="mg-btn small" data-action="key">Manage key</button>'+
       '<button class="mg-btn small" data-action="test" '+(m.provider==="image_generation"?'disabled title="Image-model test is not yet supported"':'')+'>Test</button>'+
       '<button class="mg-btn small" data-action="default" '+(m.is_default||!m.enabled?'disabled':'')+'>Set default</button>'+
       '<button class="mg-btn small '+(m.enabled?'danger':'')+'" data-action="toggle">'+(m.enabled?'Disable':'Enable')+'</button></div></article>';
@@ -210,20 +210,26 @@
    if(!m)return;
    if(btn.dataset.action==="edit"){edit(m);return}
    if(btn.dataset.action==="clone"){clone(m);return}
+   if(btn.dataset.action==="key"){
+     $("providerKeyRef").value=m.secret_ref;
+     $("providerKeyValue").value="";
+     $("providerKeyValue").focus();
+     $("providerKeyForm").scrollIntoView({behavior:"smooth",block:"center"});
+     return;
+   }
    try {
      btn.disabled=true;
      if(btn.dataset.action==="test"){
        if(!m.enabled||!m.secret_configured){
-         const secretEnv="MIMO_SECRET_"+m.secret_ref.toUpperCase().replace(/-/g,"_");
+         const secretEnv=m.secret_ref;
          showConnectionTest({
            title:m.display_name+" is not ready",
            status:"Not configured",
            error:true,
            text:!m.enabled
              ?"This model is disabled. Enable it before testing."
-             :"The backend does not see the "+secretEnv+" environment secret.",
-           meta:"Cloud Run → mimo-backend-git → Variables & Secrets. Attach the provider key as the environment secret "+secretEnv+
-             ", and deploy a new revision. Then refresh this page."
+             :"No provider key is configured for reference "+secretEnv+".",
+           meta:"Use Manage key to configure the provider in Secret Manager, then refresh this page."
          });
          return;
        }
@@ -268,7 +274,7 @@
        showConnectionTest({
          title:m.display_name+" connection failed",status:"Failed",error:true,
          text:error.message,
-         meta:"Check the model ID, endpoint, provider limits, and the "+("MIMO_SECRET_"+m.secret_ref.toUpperCase().replace(/-/g,"_"))+" secret reference in Cloud Run."
+         meta:"Check the model ID, endpoint, provider limits and provider key under Manage key."
        });
      }
      message(error.message,true);
@@ -321,6 +327,33 @@
      const msg=editing?"Model settings updated.":"Model registered. If its secret reference is already attached, you can test it immediately.";
      clear();await refresh();message(msg);
    }catch(error){message(error.message,true)}finally{setBusy(false)}
+ });
+
+ $("providerKeyForm").addEventListener("submit", async event=>{
+   event.preventDefault();
+   if(busy)return;
+   const ref=$("providerKeyRef").value.trim();
+   const secret=$("providerKeyValue").value;
+   if(!/^[A-Za-z0-9_-]{1,128}$/.test(ref)||secret.length<8){
+     MimoSite.notice("providerKeyFeedback","Enter a valid reference and API key.",true);return;
+   }
+   if(!confirm("Securely save or rotate the provider key for "+ref+"? Every model using this reference will use the new key."))return;
+   const button=$("saveProviderKey");button.disabled=true;
+   try{
+     await MimoSite.api("/v1/models/provider-keys/"+encodeURIComponent(ref),{
+       method:"PUT",body:{api_key:secret}
+     });
+     MimoSite.notice("providerKeyFeedback","Provider key securely saved. The value cannot be read back.");
+     await refresh();
+   }catch(error){
+     MimoSite.notice("providerKeyFeedback",error.message,true);
+   }finally{
+     $("providerKeyValue").value="";
+     button.disabled=false;
+   }
+ });
+ $("clearProviderKey").addEventListener("click",()=>{
+   $("providerKeyRef").value="";$("providerKeyValue").value="";
  });
  MimoSite.whenReady(refresh);
 })();

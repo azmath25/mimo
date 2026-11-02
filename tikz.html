@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mimo — TikZ Lab</title><link rel="stylesheet" href="./site.css">
+<style>
+.tikz-editor{width:100%;min-height:330px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px;line-height:1.55;padding:15px;border:1px solid #ddd;border-radius:12px;background:#fff;box-sizing:border-box;resize:vertical}
+.tikz-preview{width:100%;height:530px;border:1px solid #ddd;border-radius:12px;background:#fff}
+.tikz-layout{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:900px){.tikz-layout{grid-template-columns:1fr}.tikz-preview{height:380px}}
+</style></head>
+<body data-page="tikz" style="margin:0"><main class="mg-page"><div class="mg-wrap">
+<section class="mg-hero"><div><span class="mg-eyebrow">Mathematical tools</span>
+<h1>TikZ Lab</h1><p>Compile real TikZ/LaTeX using Mimo's isolated TeX Live service. Preview the resulting PDF and download it without exposing compiler access to the browser.</p>
+</div></section>
+<div class="mg-alert warn" id="tikzServiceNotice">Checking whether your compiler service is enabled…</div>
+<div class="tikz-layout">
+<section class="mg-card">
+<div class="mg-section"><h2>LaTeX source</h2><button type="button" class="mg-btn small" id="resetTikz">Example</button></div>
+<label class="mg-hint" for="tikzFormat">Output format</label>
+<select id="tikzFormat" class="mg-btn" style="margin:8px 0 15px;width:100%"><option value="pdf">PDF document</option><option value="png">PNG image (rendered from PDF)</option></select>
+<label class="mg-hint" for="tikzSource">Complete LaTeX document, including the preamble</label>
+<textarea id="tikzSource" class="tikz-editor" spellcheck="false" aria-label="LaTeX TikZ source">\documentclass[tikz,border=5pt]{standalone}
+\begin{document}
+\begin{tikzpicture}[scale=1.5]
+  \draw[thick] (0,0) circle (1);
+  \draw[blue,thick] (0,0) -- (0.8,0.6);
+  \fill (0,0) circle (1.2pt);
+  \node[below] at (0,0) {$O$};
+\end{tikzpicture}
+\end{document}</textarea>
+<div class="mg-actions"><button class="mg-btn primary" id="compileTikz" type="button" disabled>Compile PDF</button><button class="mg-btn" id="downloadTikz" type="button" disabled>Download PDF</button></div>
+<p id="tikzStatus" class="mg-feedback" role="status" aria-live="polite">Sign in and configure the compiler to begin.</p>
+<p class="mg-hint">Errors from TeX Live will appear above. The worker uses no shell escape, a source limit and a compile timeout. Only trusted administrators should submit source.</p>
+</section>
+<section class="mg-card"><div class="mg-section"><h2>PDF preview</h2></div>
+<iframe title="Compiled TikZ PDF" id="tikzPreview" class="tikz-preview"></iframe><img alt="Compiled TikZ PNG preview" id="tikzImagePreview" class="tikz-preview" style="object-fit:contain" hidden>
+</section></div></div></main>
+<script src="./site.js"></script><script src="./tikz.js"></script><script type="module" src="./cloud-auth.js"></script>
+</body></html>

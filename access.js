@@ -22,13 +22,21 @@
     catch{projects=[]}
     updateProjectDropdowns();
   }
+  async function loadProjects(){
+    try{
+      const response=await MimoSite.api("/v1/projects");
+      projects=(response.projects||[]).filter(p=>!p.revoked);
+      persistProjects();
+      updateProjectDropdowns();
+    }catch(error){msg("projectFeedback","Could not fetch API projects: "+error.message,true)}
+  }
   function persistProjects(){
     const key=metadataKey();if(!key)return;
     try{localStorage.setItem(key,JSON.stringify(projects.map(({id,name})=>({id,name}))))}catch{}
   }
   function updateProjectDropdowns(){
     const html=projects.length?projects.map(p=>'<option value="'+safe()(p.id)+'">'+safe()(p.name)+' · '+safe()(p.id)+'</option>').join(""):'<option value="">Create an API project first</option>';
-    for(const id of ["grantProject","revokeProject"])$(id).innerHTML=html;
+    for(const id of ["grantProject","revokeProject","manageProject"])$(id).innerHTML=html;
     $("grantPermission").disabled=!projects.length;
     $("revokeProjectBtn").disabled=!projects.length;
   }
@@ -175,6 +183,40 @@
   });
   $("copyEndpoint").addEventListener("click",()=>{if(endpoint)copy(endpoint,"Endpoint")});
   $("copyRequest").addEventListener("click",()=>{if(endpoint)copy(requestExample,"Request example")});
+
+  async function loadGrants(){
+    const projectId=$("manageProject").value;
+    if(!projectId)return;
+    try{
+      const response=await MimoSite.api("/v1/projects/"+encodeURIComponent(projectId)+"/permissions");
+      const permissions=response.permissions||[];
+      $("projectGrants").innerHTML=permissions.length?permissions.map(p=>
+        '<article class="mg-row" data-permission="'+safe()(p.id)+'"><div class="mg-row-body"><strong>'+safe()(p.workflow_id)+'</strong><small>Version '+safe()(p.version||"latest")+' · '+safe()(p.scope)+'</small></div><button class="mg-btn danger small" type="button" data-action="revoke">Revoke grant</button></article>'
+      ).join(""):'<div class="mg-empty">No active permissions.</div>';
+    }catch(e){msg("manageFeedback",e.message,true)}
+  }
+  $("loadGrants").addEventListener("click",loadGrants);
+  $("manageProject").addEventListener("change",loadGrants);
+  $("projectGrants").addEventListener("click",async event=>{
+    const row=event.target.closest("[data-permission]");
+    if(!row||!event.target.closest("[data-action='revoke']"))return;
+    const projectId=$("manageProject").value;
+    if(!confirm("Revoke permission "+row.dataset.permission+" from "+projectId+"?"))return;
+    try{
+      await MimoSite.api("/v1/projects/"+encodeURIComponent(projectId)+"/permissions/"+encodeURIComponent(row.dataset.permission),{method:"DELETE"});
+      await loadGrants();msg("manageFeedback","Permission revoked.");
+    }catch(e){msg("manageFeedback",e.message,true)}
+  });
+  $("rotateApiKey").addEventListener("click",async()=>{
+    const id=$("manageProject").value;if(!id)return;
+    if(!confirm("Invalidate the current API key for "+id+"? External projects will fail until updated."))return;
+    try{
+      const res=await MimoSite.api("/v1/projects/"+encodeURIComponent(id)+"/rotate-key",{method:"POST"});
+      setKey(res.api_key);
+      $("apiKeyReveal").scrollIntoView({behavior:"smooth",block:"center"});
+      msg("manageFeedback","Key rotated. Store the new key on the external project's server.");
+    }catch(e){msg("manageFeedback",e.message,true)}
+  });
   $("revokeProjectBtn").addEventListener("click",async()=>{
     const id=$("revokeProject").value;if(!id)return;
     if(!confirm("Revoke project "+id+"? Its API key will stop working."))return;
@@ -193,6 +235,6 @@
     const uid=window.MimoCloud.user.uid;
     if(loadedUid===uid)return;
     loadedUid=uid;setKey(null);projects=[];versions.clear();
-    restoreProjects();restoreExecutionOrigin();await loadWorkflows();
+    restoreProjects();restoreExecutionOrigin();await loadProjects();await loadWorkflows();
   });
 })();

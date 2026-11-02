@@ -2,12 +2,12 @@
 (function(){
   "use strict";
   const $=id=>document.getElementById(id),esc=()=>MimoSite.safe;
-  let workflows=[],models=[],busy=false;
+  let workflows=[],models=[],capabilities={},busy=false;
   function info(msg,error=false){MimoSite.notice("workflowFeedback",msg,error)}
   async function refresh(){
     if(!MimoSite.requireCloud())return;
     try{
-      const [listed,registered]=await Promise.all([MimoSite.api("/v1/workflows"),MimoSite.api("/v1/models")]);
+      const [listed,registered,cap]=await Promise.all([MimoSite.api("/v1/workflows"),MimoSite.api("/v1/models"),MimoSite.api("/v1/capabilities").catch(()=>({}))]);capabilities=cap;
       workflows=listed.workflows||[];models=registered||[];
       $("workflowCount").textContent=String(workflows.length);
       const safe=esc();
@@ -36,7 +36,7 @@
     const def=await MimoSite.api("/v1/workflows/"+encodeURIComponent(id)+"/export");
     const ui=def?.inputs?.mimo_ui;
     if(ui){
-      const issues=window.MimoBridge.runIssues(ui,models);
+      const issues=window.MimoBridge.runIssues(ui,models,capabilities);
       if(issues.length)throw Error("Cannot publish yet: "+issues.join(" · "));
     }
     await MimoSite.api("/v1/workflows/validate",{method:"POST",body:def});
