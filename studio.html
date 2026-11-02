@@ -621,22 +621,30 @@ function renderCloudReadiness(){
   }
   if(!getLayers())issues.push('The workflow graph contains a cycle.');
   if(state.initialFile||state.initialCloudArtifact){
-    const file=state.initialFile||{type:'image/png',size:1};
-    if(!['image/png','image/jpeg'].includes(file.type))
-      issues.push('Cloud vision accepts PNG/JPEG images only. PDF ingestion and other document formats are not yet supported.');
+    const file=state.initialFile||{type:state.initialCloudMediaType||'image/png',size:1};
+    const pdf=isPdfInputFile(file);
+    const supported=pdf||['image/png','image/jpeg'].includes(file.type);
+    if(!supported)
+      issues.push('Cloud workflows support PDF, PNG and JPEG inputs. Select a supported file.');
     if(!file.size||file.size>10*1024*1024)
-      issues.push('The image must be between 1 byte and 10 MiB.');
-    const direct=state.edges
-      .filter(e=>state.nodes.some(n=>n.id===e.from&&n.type==='input'))
-      .map(e=>state.nodes.find(n=>n.id===e.to))
-      .filter(n=>n&&window.MimoBridge.backendType(n)==='ai');
-    if(!direct.length)
-      issues.push('Connect the Input block directly to a vision-capable AI block to analyze the image.');
-    for(const n of direct){
-      const id=window.MimoBridge.resolveModel(n,cloudModels);
-      const model=cloudModels.find(m=>m.id===id);
-      if(!model?.capabilities?.image_understanding){
-        issues.push('Image input needs a vision model at '+n.name+'. Register Groq Vision (Qwen 3.8 27B) under AI models, then select it for this block.');
+      issues.push('Workflow PDF or image must be between 1 byte and 10 MiB.');
+    if(pdf&&!cloudCapabilities?.pdf?.workflow_input)
+      issues.push('PDF workflow input requires the updated Mimo backend. Deploy the Studio, Execution and Worker revisions.');
+    const pdfVision=pdf&&state.initial.pdfMode==='vision_page';
+    if(pdfVision&&(!Number.isInteger(state.initial.pdfPage)||state.initial.pdfPage<1||state.initial.pdfPage>100))
+      issues.push('Select a PDF page number from 1 to 100 for vision mode.');
+    if((!pdf&&supported)||pdfVision){
+      const direct=state.edges
+        .filter(e=>state.nodes.some(n=>n.id===e.from&&n.type==='input'))
+        .map(e=>state.nodes.find(n=>n.id===e.to))
+        .filter(n=>n&&window.MimoBridge.backendType(n)==='ai');
+      if(!direct.length)
+        issues.push('Connect Input directly to a vision-enabled AI block to inspect the image or PDF page.');
+      for(const n of direct){
+        const id=window.MimoBridge.resolveModel(n,cloudModels);
+        const model=cloudModels.find(m=>m.id===id);
+        if(!model?.capabilities?.image_understanding)
+          issues.push('Image and PDF-page vision input requires a vision-enabled model at '+n.name+'.');
       }
     }
   } else if(state.initial.fileName){
@@ -918,7 +926,7 @@ async function runCloud(){
   try{
     // A restored workflow retains only the filename, not the original file bytes.
     // Show an actionable error instead of seemingly ignoring the Run button.
-    if(state.initial.fileName&&!state.initialFile){
+    if(state.initial.fileName&&!state.initialFile&&!state.initialCloudArtifact){
       showCloudRunStatus('Re-select the original image, or click Input → Clear selected file — use text input.',true);
       openDialog('inputDialog');
       return;
@@ -936,20 +944,26 @@ async function runCloud(){
     state.runStatus={};state.results={};state.lastRun=null;state.tab='run';setTabs();renderAll();
     let cloudInput=state.initial.text||'';
     if(state.initialFile){
-      label.textContent='Uploading image…';
-      showCloudRunStatus('Uploading PNG/JPEG image to Mimo Cloud Storage…');
+      const isPdf=isPdfInputFile(state.initialFile);
+      label.textContent=isPdf?'Uploading PDF…':'Uploading image…';
+      showCloudRunStatus(isPdf?'Uploading PDF to Mimo Cloud Storage…':'Uploading PNG/JPEG image to Mimo Cloud Storage…');
       const artifact=await window.MimoCloud.uploadArtifact(state.initialFile);
-      if(!artifact?.id)throw Error('Image upload did not return an artifact ID.');
-      cloudInput={
-        kind:'mimo_image_artifact',
-        artifact_id:artifact.id,
-        text:state.initial.text||''
-      };
+      if(!artifact?.id)throw Error('Upload did not return an artifact ID.');
+      cloudInput=isPdf?
+        {kind:'mimo_pdf_artifact',artifact_id:artifact.id,
+          mode:state.initial.pdfMode||'text',page_number:state.initial.pdfPage||1,
+          text:state.initial.text||''}:
+        {kind:'mimo_image_artifact',artifact_id:artifact.id,
+          text:state.initial.text||''};
       label.textContent='Running AI…';
-      showCloudRunStatus('Image uploaded. Running the vision workflow…');
+      showCloudRunStatus(isPdf?'PDF uploaded. Extracting document for the workflow…':'Image uploaded. Running the vision workflow…');
     }else if(state.initialCloudArtifact){
-      cloudInput={kind:'mimo_image_artifact',artifact_id:state.initialCloudArtifact,
-                  text:state.initial.text||''};
+      cloudInput=state.initialCloudMediaType==='application/pdf'?
+        {kind:'mimo_pdf_artifact',artifact_id:state.initialCloudArtifact,
+          mode:state.initial.pdfMode||'text',page_number:state.initial.pdfPage||1,
+          text:state.initial.text||''}:
+        {kind:'mimo_image_artifact',artifact_id:state.initialCloudArtifact,
+          text:state.initial.text||''};
     }
     const background=typeof document!=='undefined'&&document.getElementById('backgroundRun')?.checked===true;
     const persisted=await window.MimoCloud.request('/v1/runs/drafts',{
@@ -990,16 +1004,19 @@ async function runCloud(){
     }
   }
 }
+restoreLinkedPdfFromUrl();
 const pageImageArtifact=typeof URL!=='undefined'&&typeof location!=='undefined' ? new URL(location.href).searchParams.get('image_artifact') : null;
 if(pageImageArtifact && /^[0-9a-f-]{36}$/i.test(pageImageArtifact)){
   state.initialCloudArtifact=pageImageArtifact;
+  state.initialCloudMediaType='image/png';
   state.initial={format:'image',text:'Transcribe the math on this PDF page precisely; preserve notation.',fileName:''};
   toast('PDF page vision artifact linked. Connect Input to a vision-capable AI model and Run in cloud.');
 }
+if(state.initialCloudMediaType==='application/pdf')toast('PDF artifact linked from Files. Choose text or vision-page mode in Workflow input.');
 $('#runButton').addEventListener('click',runCloud);
 $('#clearInitialFile').addEventListener('click',()=>{
   const text=$('#initialText').value;
-  state.initialFile=null;state.initialCloudArtifact=null;
+  state.initialFile=null;state.initialCloudArtifact=null;state.initialCloudMediaType=null;
   state.initial={format:'text',text,fileName:''};
   $('#initialFile').value='';
   $('#initialFormat').value='text';
