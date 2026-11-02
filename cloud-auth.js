@@ -72,12 +72,12 @@ async function uploadFile(file) {
 }
 
 async function uploadArtifact(file) {
-  if (!(file instanceof File)) throw Error("Select an image file first.");
-  if (!["image/png", "image/jpeg"].includes(file.type)) {
-    throw Error("Cloud vision currently supports PNG and JPEG images only. PDFs need a separate page-ingestion step.");
+  if (!(file instanceof File)) throw Error("Select a PDF or image file first.");
+  if (!["application/pdf", "image/png", "image/jpeg"].includes(file.type)) {
+    throw Error("Workflow input supports application/pdf, image/png and image/jpeg files only.");
   }
   if (!file.size || file.size > 10 * 1024 * 1024) {
-    throw Error("The image must be between 1 byte and 10 MiB.");
+    throw Error("PDF or image workflow input must be between 1 byte and 10 MiB.");
   }
   const form = new FormData();
   form.append("file", file, file.name);

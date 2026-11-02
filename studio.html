@@ -230,8 +230,8 @@
     <div class="builder-bottom"><button type="button" class="btn" id="resetBlock">+ New block</button><button type="button" class="btn" id="exportDraftBlock">↓ Download block JSON</button><button type="submit" class="btn dark" id="saveCustomBlock">♡ Save to my block library</button></div>
   </form><div class="builder-right"><div class="builder-card preview-card"><span class="eyebrow">LIVE BLOCK PREVIEW</span><div class="preview-sample" id="builderPreview"></div><p>One block, endless workflows. ♡</p></div><div class="builder-card"><div class="card-title"><span class="num">♡</span><div><b>Your block collection</b><p>Stored in this browser. Export JSON for backup or sharing.</p></div></div><div id="builderSavedList" class="saved-block-list"></div><button class="btn" id="builderImportBlock" type="button" style="width:100%;margin-top:14px">↑ Import block JSON</button></div></div></div>
 </section>
-<div class="dialog-backdrop" id="inputDialog" hidden><div class="dialog"><div class="dialog-top"><div><span class="eyebrow">THE VERY BEGINNING</span><h2>Workflow input ✳</h2><p>Every Input block forwards exactly this starting material, unchanged, to every connected branch.</p></div><button class="btn icononly" data-close="inputDialog" aria-label="Close">×</button></div><div class="field"><label class="field-label" for="initialFormat">Starting format</label><select id="initialFormat" class="selectbox"><option value="text">Text</option><option value="document">Document</option><option value="image">Image</option><option value="chat">Chat response</option></select></div><div class="field"><label class="field-label" for="initialText">Starting text / message</label><textarea class="areabox" id="initialText" rows="6" placeholder="Paste a problem, instructions or context here…"></textarea></div><div class="field"><label class="field-label" for="initialFile">Or choose a file (PNG/JPEG supported for cloud vision)</label><input type="file" id="initialFile" accept="image/*,.pdf,.txt,.md,.doc,.docx" class="textbox"><p class="field-hint" id="inputFileHint">Files remain in this browser until you click Run in cloud; PNG/JPEG images are then uploaded securely to Mimo Cloud Storage, not embedded in workflow JSON.</p>
-<button type="button" class="btn tiny" id="clearInitialFile" style="margin-top:9px">× Clear selected file — use text input</button></div><div class="dialog-actions"><button class="btn" data-close="inputDialog">Cancel</button><button class="btn dark" id="applyInitialInput">Use this input</button></div></div></div>
+<div class="dialog-backdrop" id="inputDialog" hidden><div class="dialog"><div class="dialog-top"><div><span class="eyebrow">THE VERY BEGINNING</span><h2>Workflow input ✳</h2><p>Every Input block forwards exactly this starting material, unchanged, to every connected branch.</p></div><button class="btn icononly" data-close="inputDialog" aria-label="Close">×</button></div><div class="field"><label class="field-label" for="initialFormat">Starting format</label><select id="initialFormat" class="selectbox"><option value="text">Text</option><option value="document">Document</option><option value="image">Image</option><option value="chat">Chat response</option></select></div><div class="field"><label class="field-label" for="initialText">Starting text / message</label><textarea class="areabox" id="initialText" rows="6" placeholder="Paste a problem, instructions or context here…"></textarea></div><div class="field"><label class="field-label" for="initialFile">Or choose a PDF, PNG or JPEG for a cloud workflow</label><input type="file" id="initialFile" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" class="textbox"><p class="field-hint" id="inputFileHint">PDFs and PNG/JPEG images are securely uploaded to Mimo Cloud Storage when you run; workflow JSON contains no file bytes.</p>
+<div id="pdfInputOptions" hidden><div class="field"><label class="field-label" for="pdfMode">PDF processing mode</label><select id="pdfMode" class="selectbox"><option value="text">Embedded text — all PDF pages</option><option value="vision_page">Vision — one selected PDF page (PNG)</option></select></div><div class="field" id="pdfPageRow" hidden><label class="field-label" for="pdfPage">Page to read with vision (1–100)</label><input id="pdfPage" class="textbox" type="number" value="1" min="1" max="100" step="1"></div><p class="field-hint">Text mode extracts all embedded PDF text but cannot read scanned pages or inspect diagrams. Vision mode sends the selected page to a vision-enabled AI block; it does not OCR the entire PDF.</p></div><button type="button" class="btn tiny" id="clearInitialFile" style="margin-top:9px">× Clear selected file — use text input</button></div><div class="dialog-actions"><button class="btn" data-close="inputDialog">Cancel</button><button class="btn dark" id="applyInitialInput">Use this input</button></div></div></div>
 <div class="dialog-backdrop" id="flowsDialog" hidden><div class="dialog"><div class="dialog-top"><div><span class="eyebrow">YOUR LITTLE ARCHIVE</span><h2>Saved workflows ♡</h2><p>Cloud drafts are stored in Neon. Local backups and JSON exports remain available.</p></div><button class="btn icononly" data-close="flowsDialog" aria-label="Close">×</button></div><div id="savedFlowsList" class="saved-block-list"></div><div class="dialog-actions"><button class="btn" id="newWorkflow">+ New workflow</button><button class="btn" id="modalImportFlow">↑ Import JSON</button><button class="btn dark" id="modalSaveFlow">♡ Save current workflow</button></div></div></div>
 <div class="dialog-backdrop" id="guideDialog" hidden><div class="dialog workflow-doc-dialog" role="dialog" aria-modal="true" aria-labelledby="guideTitle">
  <div class="guide-top"><div><span class="eyebrow">✳ AUTOMATIC WORKFLOW HANDBOOK</span><h2 id="guideTitle">The big picture.</h2><p>One living document of the purpose, sequence, prompts and connections of your entire workflow.</p></div><button type="button" class="btn icononly" data-close="guideDialog" aria-label="Close guide">×</button></div>
@@ -285,7 +285,7 @@ const BASE={
  spark:{name:'AI assistant',subtitle:'A thoughtful collaborator',icon:'spark',prompt:'Read all supplied materials and complete the requested task carefully. State clearly what was done.',output:'text',accept:FMT,source:'connected'}
 };
 const TYPES={...BASE};
-const state={nodes:[],edges:[],seq:0,selected:null,selectedEdge:null,tab:'edit',scale:1,tx:0,ty:0,connecting:null,moving:null,running:false,runStatus:{},results:{},lastRun:null,lastRunKind:null,currentCloud:false,custom:{},savedFlows:[],flowId:null,builderEditing:null,workflowGoal:'',initial:{format:'text',text:'',fileName:''},initialFile:null,initialCloudArtifact:null,lastCloudRunId:null,view:'workflow'};
+const state={nodes:[],edges:[],seq:0,selected:null,selectedEdge:null,tab:'edit',scale:1,tx:0,ty:0,connecting:null,moving:null,running:false,runStatus:{},results:{},lastRun:null,lastRunKind:null,currentCloud:false,custom:{},savedFlows:[],flowId:null,builderEditing:null,workflowGoal:'',initial:{format:'text',text:'',fileName:'',pdfMode:'text',pdfPage:1},initialFile:null,initialCloudArtifact:null,initialCloudMediaType:null,lastCloudRunId:null,view:'workflow'};
 const N=$('#nodes'),P=$('#edgePaths'),workspace=$('#workspace'),canvas=$('#canvas'),world=$('#world'),panel=$('#inspectorContent');
 const storage=(key,content)=>{try{if(content===undefined)return JSON.parse(localStorage.getItem(key)||'null');localStorage.setItem(key,JSON.stringify(content));return true}catch(err){return false}};
 const customKey='mimo.blocks.v2',workflowKey='mimo.flows.v2';
@@ -294,7 +294,7 @@ let lastSavedSignature=null,savedLocation='new',recoveryTimer=null,pendingRecove
 const string=(v,max=3000)=>typeof v==='string'?v.slice(0,max):'';
 function unique(){return 'c_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8)}
 function typeInfo(t){return TYPES[t]||TYPES.blank}
-function formatOf(n){return n.type==='input'?state.initial.format:n.type==='output'?'collection':n.output}
+function formatOf(n){return n.type==='input'?(hasPdfInput()&&state.initial.pdfMode==='vision_page'?'image':state.initial.format):n.type==='output'?'collection':n.output}
 function sanitizeBlock(raw,id){const r=raw&&typeof raw==='object'?raw:{};const execution=['ai','tool','condition'].includes(r.execution)?r.execution:'ai';return {id:id||unique(),name:string(r.name,65)||'My custom block',subtitle:string(r.subtitle??r.summary,140)||'A handy little step',icon:ICONS[r.icon]?r.icon:(execution==='condition'?'condition':execution==='tool'?'tool':'spark'),execution,prompt:string(r.prompt,10000),output:FMT.includes(r.output)?r.output:'text',accept:Array.isArray(r.accept)?FMT.filter(x=>r.accept.includes(x)):FMT.slice(),source:['connected','workflow','manual'].includes(r.source)?r.source:'connected',combine:['all','first','latest'].includes(r.combine)?r.combine:'all',required:r.required!==false,report:r.report!==false,provider:MODELS.hasOwnProperty(r.provider)?r.provider:'OpenAI',model:string(r.model,100)||'gpt-6',maxTokens:Number.isInteger(Number(r.maxTokens))&&Number(r.maxTokens)>=64&&Number(r.maxTokens)<=16384?Number(r.maxTokens):1024,imageSize:['256x256','512x512','1024x1024'].includes(r.imageSize)?r.imageSize:'1024x1024',imageCount:Number.isInteger(Number(r.imageCount))&&Number(r.imageCount)>=1&&Number(r.imageCount)<=4?Number(r.imageCount):1,manualInput:string(r.manualInput,20000),conditionMode:r.conditionMode==='ai'?'ai':'rule',conditionField:string(r.conditionField,120),branches:cleanBranches(r.branches),aiDemoBranch:string(r.aiDemoBranch,40),toolKind:TOOLS[r.toolKind]?r.toolKind:'trim',toolEngine:['pdflatex','lualatex','xelatex','tectonic'].includes(r.toolEngine)?r.toolEngine:'pdflatex',compilerTarget:['pdf','svg','png'].includes(r.compilerTarget)?r.compilerTarget:'pdf',compilerEndpoint:string(r.compilerEndpoint,200)||'/api/compile/tikz',toolField:string(r.toolField,120),toolFind:string(r.toolFind,240),toolReplacement:string(r.toolReplacement,240),includeWorkflowGuide:r.includeWorkflowGuide===true}}
 
 function refreshTypes(){Object.keys(TYPES).filter(k=>!BASE[k]).forEach(k=>delete TYPES[k]);Object.entries(state.custom).forEach(([k,v])=>TYPES[k]=v)}
@@ -558,7 +558,7 @@ function updateSelected(key,value){const n=node(state.selected);if(!n)return;n[k
 function selectedToTemplate(){const n=node(state.selected);if(!n||['input','output'].includes(n.type))return null;return sanitizeBlock({execution:executionOf(n),conditionMode:n.conditionMode,conditionField:n.conditionField,branches:n.branches,aiDemoBranch:n.aiDemoBranch,toolKind:n.toolKind,toolEngine:n.toolEngine,compilerTarget:n.compilerTarget,compilerEndpoint:n.compilerEndpoint,toolField:n.toolField,toolFind:n.toolFind,toolReplacement:n.toolReplacement,includeWorkflowGuide:n.includeWorkflowGuide,maxTokens:n.maxTokens,name:n.name,subtitle:n.summary,icon:typeInfo(n.type).icon,prompt:n.prompt,output:n.output,source:n.source,combine:n.combine,required:n.required,report:n.report,accept:n.accept,provider:n.provider,model:n.model})}
 function downloadJSON(data,filename){const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename.replace(/[^a-zA-Z0-9._-]/g,'_');document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1200)}
 function blockJSON(t){return {kind:'mimo/block',version:4,block:{...t}}}
-function workflowJSON(){const withCustom={};state.nodes.forEach(n=>{if(state.custom[n.type])withCustom[n.type]=state.custom[n.type]});return {kind:'mimo/workflow',version:4,name:$('#workflowTitle').value||'My workflow',nodes:state.nodes.map(n=>({...n,accept:[...n.accept]})),edges:state.edges.map(e=>({...e})),customBlocks:withCustom,initialInput:{format:state.initial.format,text:state.initial.text,fileName:state.initialFile?'':state.initial.fileName},workflowGoal:state.workflowGoal,note:'Binary files are not embedded. Re-select local files after importing.'}}
+function workflowJSON(){const withCustom={};state.nodes.forEach(n=>{if(state.custom[n.type])withCustom[n.type]=state.custom[n.type]});return {kind:'mimo/workflow',version:4,name:$('#workflowTitle').value||'My workflow',nodes:state.nodes.map(n=>({...n,accept:[...n.accept]})),edges:state.edges.map(e=>({...e})),customBlocks:withCustom,initialInput:{format:state.initial.format,text:state.initial.text,fileName:state.initialFile?'':state.initial.fileName,pdfMode:state.initial.pdfMode||'text',pdfPage:state.initial.pdfPage||1},workflowGoal:state.workflowGoal,note:'Binary files are not embedded. Re-select local files after importing.'}}
 function draftSignature(){return JSON.stringify(workflowJSON())}
 function draftStorageKey(){
   const uid=window.MimoCloud?.authorized&&window.MimoCloud?.user?.uid;
@@ -621,22 +621,30 @@ function renderCloudReadiness(){
   }
   if(!getLayers())issues.push('The workflow graph contains a cycle.');
   if(state.initialFile||state.initialCloudArtifact){
-    const file=state.initialFile||{type:'image/png',size:1};
-    if(!['image/png','image/jpeg'].includes(file.type))
-      issues.push('Cloud vision accepts PNG/JPEG images only. PDF ingestion and other document formats are not yet supported.');
+    const file=state.initialFile||{type:state.initialCloudMediaType||'image/png',size:1};
+    const pdf=isPdfInputFile(file);
+    const supported=pdf||['image/png','image/jpeg'].includes(file.type);
+    if(!supported)
+      issues.push('Cloud workflows support PDF, PNG and JPEG inputs. Select a supported file.');
     if(!file.size||file.size>10*1024*1024)
-      issues.push('The image must be between 1 byte and 10 MiB.');
-    const direct=state.edges
-      .filter(e=>state.nodes.some(n=>n.id===e.from&&n.type==='input'))
-      .map(e=>state.nodes.find(n=>n.id===e.to))
-      .filter(n=>n&&window.MimoBridge.backendType(n)==='ai');
-    if(!direct.length)
-      issues.push('Connect the Input block directly to a vision-capable AI block to analyze the image.');
-    for(const n of direct){
-      const id=window.MimoBridge.resolveModel(n,cloudModels);
-      const model=cloudModels.find(m=>m.id===id);
-      if(!model?.capabilities?.image_understanding){
-        issues.push('Image input needs a vision model at '+n.name+'. Register Groq Vision (Qwen 3.8 27B) under AI models, then select it for this block.');
+      issues.push('Workflow PDF or image must be between 1 byte and 10 MiB.');
+    if(pdf&&!cloudCapabilities?.pdf?.workflow_input)
+      issues.push('PDF workflow input requires the updated Mimo backend. Deploy the Studio, Execution and Worker revisions.');
+    const pdfVision=pdf&&state.initial.pdfMode==='vision_page';
+    if(pdfVision&&(!Number.isInteger(state.initial.pdfPage)||state.initial.pdfPage<1||state.initial.pdfPage>100))
+      issues.push('Select a PDF page number from 1 to 100 for vision mode.');
+    if((!pdf&&supported)||pdfVision){
+      const direct=state.edges
+        .filter(e=>state.nodes.some(n=>n.id===e.from&&n.type==='input'))
+        .map(e=>state.nodes.find(n=>n.id===e.to))
+        .filter(n=>n&&window.MimoBridge.backendType(n)==='ai');
+      if(!direct.length)
+        issues.push('Connect Input directly to a vision-enabled AI block to inspect the image or PDF page.');
+      for(const n of direct){
+        const id=window.MimoBridge.resolveModel(n,cloudModels);
+        const model=cloudModels.find(m=>m.id===id);
+        if(!model?.capabilities?.image_understanding)
+          issues.push('Image and PDF-page vision input requires a vision-enabled model at '+n.name+'.');
       }
     }
   } else if(state.initial.fileName){
@@ -680,7 +688,7 @@ window.addEventListener('beforeunload',e=>{
   e.preventDefault();
   e.returnValue='';
 });
-function newWorkflow(){if(state.running||!confirmDiscardEdits())return;closeDialog('flowsDialog');state.nodes=[];state.edges=[];state.seq=0;state.selected=null;state.selectedEdge=null;state.flowId=null;state.currentCloud=false;state.workflowGoal='';state.initialFile=null;state.initialCloudArtifact=null;state.initial={format:'text',text:'',fileName:''};state.results={};state.runStatus={};state.lastRun=null;state.lastRunKind=null;$('#workflowTitle').value='Untitled workflow';const a=makeNode('input',60,220,{name:'Workflow input'}),b=makeNode('output',620,220,{name:'My outputs'});state.nodes.push(a,b);setView('workflow');renderAll();requestAnimationFrame(()=>{fitView();selectNode(a.id)});toast('A fresh workflow is ready ✳');lastSavedSignature=null;savedLocation='new';updateDraftStatus()}
+function newWorkflow(){if(state.running||!confirmDiscardEdits())return;closeDialog('flowsDialog');state.nodes=[];state.edges=[];state.seq=0;state.selected=null;state.selectedEdge=null;state.flowId=null;state.currentCloud=false;state.workflowGoal='';state.initialFile=null;state.initialCloudArtifact=null;state.initialCloudMediaType=null;state.initial={format:'text',text:'',fileName:''};state.results={};state.runStatus={};state.lastRun=null;state.lastRunKind=null;$('#workflowTitle').value='Untitled workflow';const a=makeNode('input',60,220,{name:'Workflow input'}),b=makeNode('output',620,220,{name:'My outputs'});state.nodes.push(a,b);setView('workflow');renderAll();requestAnimationFrame(()=>{fitView();selectNode(a.id)});toast('A fresh workflow is ready ✳');lastSavedSignature=null;savedLocation='new';updateDraftStatus()}
 function quickStartWorkflow(){
   if(state.running||!confirmDiscardEdits())return;
   state.nodes=[];state.edges=[];state.seq=0;state.selected=null;state.selectedEdge=null;
@@ -786,14 +794,77 @@ function renderFlowList(){
 }
 function openDialog(id){if(id==='guideDialog')refreshGuide();if(id==='inputDialog'){populateInputDialog()}if(id==='flowsDialog')renderFlowList();if(id==='checkDialog')renderCloudReadiness();$('#'+id).hidden=false;if(id==='guideDialog')refreshGuide()}
 function closeDialog(id){$('#'+id).hidden=true}
-function populateInputDialog(){$('#initialFormat').value=state.initial.format;$('#initialText').value=state.initial.text||'';$('#initialFile').value='';$('#inputFileHint').textContent=state.initialFile?`Current file: ${state.initialFile.name}. Choose a new one to replace it.`:state.initial.fileName?`Previous file: ${state.initial.fileName}. Re-select it to make its data available.`:'PNG/JPEG images upload to Mimo Cloud Storage only when you click Run in cloud; binary data is not included in workflow JSON.'}
-function applyInput(){const oldFormat=state.initial.format;const file=$('#initialFile').files[0];state.initial={format:$('#initialFormat').value,text:$('#initialText').value,fileName:file?file.name:(state.initialFile?state.initialFile.name:'')};if(file){state.initialCloudArtifact=null;state.initialFile=file;state.initial.format=file.type.startsWith('image/')?'image':['text/plain','text/markdown'].includes(file.type)?'text':'document'}else if(state.initial.format==='text'||oldFormat!==state.initial.format){state.initialFile=null;state.initial.fileName=''}closeDialog('inputDialog');renderAll();toast('Input updated for all Input blocks ♡')}
+function isPdfInputFile(file){return !!file&&(file.type==='application/pdf'||/\.pdf$/i.test(file.name||''))}
+function hasPdfInput(){return isPdfInputFile(state.initialFile)||(!!state.initialCloudArtifact&&state.initialCloudMediaType==='application/pdf')||(state.initial.format==='document'&&/\.pdf$/i.test(state.initial.fileName||''))}
+function updatePdfInputOptions(){
+  const selected=$('#initialFile').files[0];
+  const pdf=isPdfInputFile(selected)||(!selected&&hasPdfInput());
+  $('#pdfInputOptions').hidden=!pdf;
+  $('#pdfPageRow').hidden=!pdf||$('#pdfMode').value!=='vision_page';
+}
+function populateInputDialog(){
+  $('#initialFormat').value=state.initial.format;
+  $('#initialText').value=state.initial.text||'';
+  $('#initialFile').value='';
+  $('#pdfMode').value=state.initial.pdfMode==='vision_page'?'vision_page':'text';
+  $('#pdfPage').value=state.initial.pdfPage||1;
+  $('#inputFileHint').textContent=state.initialFile?
+    'Current file: '+state.initialFile.name+'. Choose a new one to replace it.':
+    state.initialCloudArtifact?'A file from Mimo Files is linked securely; select another file to replace it.':
+    state.initial.fileName?'Previous file: '+state.initial.fileName+'. Re-select it to make its data available.':
+    'PDFs and PNG/JPEG images upload to Mimo Cloud Storage when running. Files are not embedded in exported workflow JSON.';
+  updatePdfInputOptions();
+}
+function restoreLinkedPdfFromUrl(){
+  if(typeof location==='undefined')return;
+  const params=new URL(location.href).searchParams;
+  const pdfId=params.get('pdf_artifact');
+  const imageId=params.get('image_artifact');
+  if(pdfId&&/^[0-9a-f-]{36}$/i.test(pdfId)){
+    state.initialCloudArtifact=pdfId;
+    state.initialCloudMediaType='application/pdf';
+    state.initialFile=null;
+    state.initial={...state.initial,format:'document',fileName:'',pdfMode:state.initial.pdfMode||'text',pdfPage:state.initial.pdfPage||1};
+  }else if(imageId&&/^[0-9a-f-]{36}$/i.test(imageId)){
+    state.initialCloudArtifact=imageId;
+    state.initialCloudMediaType='image/png';
+    state.initialFile=null;
+    state.initial={...state.initial,format:'image',text:'Transcribe this PDF page faithfully, preserving mathematical notation.',fileName:''};
+  }
+}
+function applyInput(){
+  const oldFormat=state.initial.format;
+  const file=$('#initialFile').files[0];
+  const selectedFormat=$('#initialFormat').value;
+  const mode=$('#pdfMode').value;
+  const page=Number($('#pdfPage').value);
+  state.initial={
+    format:selectedFormat,text:$('#initialText').value,
+    fileName:file?file.name:(state.initialFile?state.initialFile.name:state.initial.fileName||''),
+    pdfMode:mode==='vision_page'?'vision_page':'text',
+    pdfPage:Number.isInteger(page)&&page>=1&&page<=100?page:1
+  };
+  if(file){
+    state.initialCloudArtifact=null;
+    state.initialCloudMediaType=null;
+    state.initialFile=file;
+    state.initial.format=isPdfInputFile(file)?'document':file.type.startsWith('image/')?'image':selectedFormat;
+  }else if(selectedFormat==='text'||oldFormat!==selectedFormat){
+    state.initialFile=null;state.initialCloudArtifact=null;state.initialCloudMediaType=null;
+    state.initial.fileName='';
+  }
+  if(state.initialCloudArtifact&&state.initialCloudMediaType==='application/pdf')
+    state.initial.format='document';
+  closeDialog('inputDialog');
+  renderAll();
+  toast('Input updated for all Input blocks ♡');
+}
 function sanitizeNode(r){if(!r||typeof r!=='object')return null;const type=typeof r.type==='string'&&/^[a-zA-Z0-9_-]{1,90}$/.test(r.type)?r.type:'blank',t=typeInfo(type),rawId=string(r.id,75),id=/^[a-zA-Z0-9_-]{1,75}$/.test(rawId)?rawId:'';if(!id)return null;const allowed=FMT.includes(r.output)?r.output:t.output;const execution=['ai','tool','condition'].includes(r.execution)?r.execution:(t.execution||'ai');return {id,type,x:Number.isFinite(+r.x)?Math.max(-2000,Math.min(10000,+r.x)):50,y:Number.isFinite(+r.y)?Math.max(-2000,Math.min(10000,+r.y)):130,name:string(r.name,65)||t.name,summary:string(r.summary,140)||t.subtitle,prompt:string(r.prompt,10000),output:type==='input'?'text':type==='output'?'collection':allowed,execution,conditionMode:r.conditionMode==='ai'?'ai':'rule',conditionField:string(r.conditionField,120),branches:cleanBranches(r.branches),aiDemoBranch:string(r.aiDemoBranch,40),toolKind:TOOLS[r.toolKind]?r.toolKind:(t.toolKind||'trim'),toolEngine:['pdflatex','lualatex','xelatex','tectonic'].includes(r.toolEngine)?r.toolEngine:'pdflatex',compilerTarget:['pdf','svg','png'].includes(r.compilerTarget)?r.compilerTarget:'pdf',compilerEndpoint:string(r.compilerEndpoint,200)||'/api/compile/tikz',toolField:string(r.toolField,120),toolFind:string(r.toolFind,240),toolReplacement:string(r.toolReplacement,240),includeWorkflowGuide:r.includeWorkflowGuide===true,accept:Array.isArray(r.accept)?FMT.filter(x=>r.accept.includes(x)):FMT.slice(),source:['connected','workflow','manual'].includes(r.source)?r.source:t.source||'connected',combine:['all','first','latest'].includes(r.combine)?r.combine:'all',required:r.required!==false,report:r.report!==false,provider:MODELS.hasOwnProperty(r.provider)?r.provider:'OpenAI',model:string(r.model,100)||'gpt-6',maxTokens:Number.isInteger(Number(r.maxTokens))&&Number(r.maxTokens)>=64&&Number(r.maxTokens)<=16384?Number(r.maxTokens):1024}}
 function applyWorkflow(data,keepId=null){const r=data?.kind==='mimo/workflow'?data:data?.workflow||data;if(!r||!Array.isArray(r.nodes)||!Array.isArray(r.edges)||r.nodes.length>350||r.edges.length>1300)throw Error('That file is not a valid Mimo workflow.');if(r.customBlocks&&typeof r.customBlocks==='object'){for(const [id,b] of Object.entries(r.customBlocks)){if(/^c_[a-zA-Z0-9_-]{3,90}$/.test(id)&&!BASE[id])state.custom[id]=sanitizeBlock(b,id)}refreshTypes();storage(customKey,state.custom);buildTemplates();renderBuilderSaved()}
 const ids=new Set(),nodes=[];r.nodes.forEach(raw=>{const n=sanitizeNode(raw);if(n&&!ids.has(n.id)){ids.add(n.id);nodes.push(n)}});const edges=[],used=new Set();for(const e of r.edges){if(!e||!ids.has(e.from)||!ids.has(e.to)||e.from===e.to)continue;const a=nodes.find(n=>n.id===e.from),b=nodes.find(n=>n.id===e.to),key=e.from+'>'+e.to+':'+(e.branchId||'');if(executionOf(a)==='condition'&&!cleanBranches(a.branches).some(v=>v.id===e.branchId))continue;if(a.type==='output'||b.type==='input'||used.has(key))continue;used.add(key);edges.push({from:e.from,to:e.to,...(e.branchId?{branchId:e.branchId}:{})})}
 // Strip cyclic imported connections, rather than allowing an un-runnable graph.
 const accepted=[],reaches=(start,goal)=>{const seen=new Set(),stack=[start];while(stack.length){const at=stack.pop();if(at===goal)return true;if(seen.has(at))continue;seen.add(at);accepted.filter(v=>v.from===at).forEach(v=>stack.push(v.to))}return false};edges.forEach(e=>{if(!reaches(e.to,e.from))accepted.push(e)});
-state.nodes=nodes;state.edges=accepted;state.seq=Math.max(0,...nodes.map(n=>+n.id.match(/^b(\d+)$/)?.[1]||0));state.selected=null;state.selectedEdge=null;state.runStatus={};state.results={};state.lastRun=null;state.lastRunKind=null;state.flowId=keepId;state.currentCloud=!!keepId&&state.savedFlows.some(v=>v.id===keepId&&v.cloud);state.workflowGoal=string(r.workflowGoal,6000);state.initialFile=null;state.initial={format:FMT.includes(r.initialInput?.format)?r.initialInput.format:'text',text:string(r.initialInput?.text,100000),fileName:string(r.initialInput?.fileName,180)};$('#workflowTitle').value=string(r.name,60)||'Imported workflow';setView('workflow');renderAll();requestAnimationFrame(fitView);toast('Workflow imported ♡');lastSavedSignature=null;savedLocation='new';updateDraftStatus()}
+state.nodes=nodes;state.edges=accepted;state.seq=Math.max(0,...nodes.map(n=>+n.id.match(/^b(\d+)$/)?.[1]||0));state.selected=null;state.selectedEdge=null;state.runStatus={};state.results={};state.lastRun=null;state.lastRunKind=null;state.flowId=keepId;state.currentCloud=!!keepId&&state.savedFlows.some(v=>v.id===keepId&&v.cloud);state.workflowGoal=string(r.workflowGoal,6000);state.initialFile=null;state.initialCloudArtifact=null;state.initialCloudMediaType=null;state.initial={format:FMT.includes(r.initialInput?.format)?r.initialInput.format:'text',text:string(r.initialInput?.text,100000),fileName:string(r.initialInput?.fileName,180),pdfMode:r.initialInput?.pdfMode==='vision_page'?'vision_page':'text',pdfPage:Number.isInteger(r.initialInput?.pdfPage)&&r.initialInput.pdfPage>=1&&r.initialInput.pdfPage<=100?r.initialInput.pdfPage:1};restoreLinkedPdfFromUrl();$('#workflowTitle').value=string(r.name,60)||'Imported workflow';setView('workflow');renderAll();requestAnimationFrame(fitView);toast('Workflow imported ♡');lastSavedSignature=null;savedLocation='new';updateDraftStatus()}
 function importBlockObject(obj){const r=obj?.kind==='mimo/block'?obj.block:obj?.block||obj;if(!r||typeof r!=='object'||Array.isArray(r)||!r.name||typeof r.name!=='string')throw Error('That file does not contain a reusable block.');const id=unique(),t=sanitizeBlock(r,id);state.custom[id]=t;refreshTypes();storage(customKey,state.custom);buildTemplates();renderBuilderSaved();toast('Block imported to your library ♡');return t}
 async function readJSON(file,handler){if(!file)return;if(file.size>3*1024*1024){toast('JSON must be under 3 MB.');return}try{const obj=JSON.parse(await file.text());handler(obj)}catch(e){toast('Could not import JSON: '+(e.message||'Invalid file'))}}
 function renderBuilderSaved(){$('#builderSavedList').innerHTML=Object.entries(state.custom).length?Object.entries(state.custom).map(([id,t])=>`<div class="saved-entry" data-block-id="${safe(id)}"><span class="template-icon" style="width:34px;height:34px">${icon(t.icon,16)}</span><span class="meta"><strong>${safe(t.name)}</strong><small>${t.execution==='condition'?t.branches.length+' branches · '+(t.conditionMode==='ai'?'AI':'rule'):t.execution==='tool'?'No AI · '+safe(TOOLS[t.toolKind]):safe(t.provider)+' · '+safe(t.model)}</small></span><button data-block-act="edit">Edit</button><button data-block-act="export">↓</button><button data-block-act="delete">×</button></div>`).join(''):'<div class="hint-empty">No custom blocks yet. Create your first little worker here.</div>'}
@@ -863,7 +934,7 @@ async function runCloud(){
   try{
     // A restored workflow retains only the filename, not the original file bytes.
     // Show an actionable error instead of seemingly ignoring the Run button.
-    if(state.initial.fileName&&!state.initialFile){
+    if(state.initial.fileName&&!state.initialFile&&!state.initialCloudArtifact){
       showCloudRunStatus('Re-select the original image, or click Input → Clear selected file — use text input.',true);
       openDialog('inputDialog');
       return;
@@ -881,20 +952,26 @@ async function runCloud(){
     state.runStatus={};state.results={};state.lastRun=null;state.tab='run';setTabs();renderAll();
     let cloudInput=state.initial.text||'';
     if(state.initialFile){
-      label.textContent='Uploading image…';
-      showCloudRunStatus('Uploading PNG/JPEG image to Mimo Cloud Storage…');
+      const isPdf=isPdfInputFile(state.initialFile);
+      label.textContent=isPdf?'Uploading PDF…':'Uploading image…';
+      showCloudRunStatus(isPdf?'Uploading PDF to Mimo Cloud Storage…':'Uploading PNG/JPEG image to Mimo Cloud Storage…');
       const artifact=await window.MimoCloud.uploadArtifact(state.initialFile);
-      if(!artifact?.id)throw Error('Image upload did not return an artifact ID.');
-      cloudInput={
-        kind:'mimo_image_artifact',
-        artifact_id:artifact.id,
-        text:state.initial.text||''
-      };
+      if(!artifact?.id)throw Error('Upload did not return an artifact ID.');
+      cloudInput=isPdf?
+        {kind:'mimo_pdf_artifact',artifact_id:artifact.id,
+          mode:state.initial.pdfMode||'text',page_number:state.initial.pdfPage||1,
+          text:state.initial.text||''}:
+        {kind:'mimo_image_artifact',artifact_id:artifact.id,
+          text:state.initial.text||''};
       label.textContent='Running AI…';
-      showCloudRunStatus('Image uploaded. Running the vision workflow…');
+      showCloudRunStatus(isPdf?'PDF uploaded. Extracting document for the workflow…':'Image uploaded. Running the vision workflow…');
     }else if(state.initialCloudArtifact){
-      cloudInput={kind:'mimo_image_artifact',artifact_id:state.initialCloudArtifact,
-                  text:state.initial.text||''};
+      cloudInput=state.initialCloudMediaType==='application/pdf'?
+        {kind:'mimo_pdf_artifact',artifact_id:state.initialCloudArtifact,
+          mode:state.initial.pdfMode||'text',page_number:state.initial.pdfPage||1,
+          text:state.initial.text||''}:
+        {kind:'mimo_image_artifact',artifact_id:state.initialCloudArtifact,
+          text:state.initial.text||''};
     }
     const background=typeof document!=='undefined'&&document.getElementById('backgroundRun')?.checked===true;
     const persisted=await window.MimoCloud.request('/v1/runs/drafts',{
@@ -935,16 +1012,10 @@ async function runCloud(){
     }
   }
 }
-const pageImageArtifact=typeof URL!=='undefined'&&typeof location!=='undefined' ? new URL(location.href).searchParams.get('image_artifact') : null;
-if(pageImageArtifact && /^[0-9a-f-]{36}$/i.test(pageImageArtifact)){
-  state.initialCloudArtifact=pageImageArtifact;
-  state.initial={format:'image',text:'Transcribe the math on this PDF page precisely; preserve notation.',fileName:''};
-  toast('PDF page vision artifact linked. Connect Input to a vision-capable AI model and Run in cloud.');
-}
 $('#runButton').addEventListener('click',runCloud);
 $('#clearInitialFile').addEventListener('click',()=>{
   const text=$('#initialText').value;
-  state.initialFile=null;state.initialCloudArtifact=null;
+  state.initialFile=null;state.initialCloudArtifact=null;state.initialCloudMediaType=null;
   state.initial={format:'text',text,fileName:''};
   $('#initialFile').value='';
   $('#initialFormat').value='text';
@@ -977,7 +1048,7 @@ $('#guideDownload').addEventListener('click',()=>downloadText(workflowDocumentat
 $('#guideDownloadJSON').addEventListener('click',()=>downloadJSON(workflowGuideJSON(),($('#workflowTitle').value||'workflow')+'.guide.json'));
 $('#guideCopy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(workflowDocumentation());toast('Workflow guide copied ♡')}catch{toast('Clipboard unavailable here. Use Download Markdown.')}});
 $('#guideReviewer').addEventListener('click',addReviewer);
-$('#workflowInputBtn').addEventListener('click',()=>openDialog('inputDialog'));$('#applyInitialInput').addEventListener('click',applyInput);$('#saveFlow').addEventListener('click',saveWorkflow);$('#exportFlow').addEventListener('click',()=>downloadJSON(workflowJSON(),($('#workflowTitle').value||'workflow')+'.workflow.json'));$('#importFlow').addEventListener('click',()=>$('#flowJsonFile').click());$('#modalImportFlow').addEventListener('click',()=>$('#flowJsonFile').click());$('#flowJsonFile').addEventListener('change',e=>{readJSON(e.target.files[0],o=>{applyWorkflow(o);closeDialog('flowsDialog')});e.target.value=''});$('#openFlows').addEventListener('click',()=>openDialog('flowsDialog'));$('#modalSaveFlow').addEventListener('click',()=>{saveWorkflow();closeDialog('flowsDialog')});$('#newWorkflow').addEventListener('click',newWorkflow);$('#savedFlowsList').addEventListener('click',async e=>{
+$('#initialFile').addEventListener('change',updatePdfInputOptions);$('#pdfMode').addEventListener('change',updatePdfInputOptions);$('#workflowInputBtn').addEventListener('click',()=>openDialog('inputDialog'));$('#applyInitialInput').addEventListener('click',applyInput);$('#saveFlow').addEventListener('click',saveWorkflow);$('#exportFlow').addEventListener('click',()=>downloadJSON(workflowJSON(),($('#workflowTitle').value||'workflow')+'.workflow.json'));$('#importFlow').addEventListener('click',()=>$('#flowJsonFile').click());$('#modalImportFlow').addEventListener('click',()=>$('#flowJsonFile').click());$('#flowJsonFile').addEventListener('change',e=>{readJSON(e.target.files[0],o=>{applyWorkflow(o);closeDialog('flowsDialog')});e.target.value=''});$('#openFlows').addEventListener('click',()=>openDialog('flowsDialog'));$('#modalSaveFlow').addEventListener('click',()=>{saveWorkflow();closeDialog('flowsDialog')});$('#newWorkflow').addEventListener('click',newWorkflow);$('#savedFlowsList').addEventListener('click',async e=>{
   const b=e.target.closest('[data-flow-act]');if(!b)return;
   const id=b.closest('[data-flow]').dataset.flow,v=state.savedFlows.find(x=>x.id===id);if(!v)return;
   const act=b.dataset.flowAct;
@@ -1037,6 +1108,7 @@ const savedBlocks=storage(customKey);if(savedBlocks&&typeof savedBlocks==='objec
 refreshTypes();const flows=storage(workflowKey);if(Array.isArray(flows))state.savedFlows=flows.filter(v=>v&&typeof v.id==='string'&&(v.cloud||(v.data&&Array.isArray(v.data.nodes)))).slice(0,150);buildTemplates();builderDefaults();renderBuilderSaved();
 // Minimal starter canvas. More complex examples are opt-in, not loaded by default.
 state.initial={format:'text',text:'',fileName:''};
+restoreLinkedPdfFromUrl();
 const input=makeNode('input',80,210,{name:'Input',summary:'Configure the starting material.'});
 const collect=makeNode('output',445,210,{name:'Output',summary:'Collect connected results.'});
 state.nodes.push(input,collect);

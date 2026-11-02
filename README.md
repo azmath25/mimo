@@ -80,7 +80,7 @@ Backend setup: see the private backend repository's docs/PROVIDER_KEYS_AND_TIKZ.
 - **Spending:** `budgets.html` displays lifetime usage and configures pre-call hard limits and informational soft thresholds.
 - **Run in cloud:** uses the authenticated `POST /v1/workflows/execute` endpoint and displays real node results. Currently works for the backend's allowed text tools and configured models.
 - **AI model setup:** Cloud Run does not itself supply API keys or models. Models must be added to the backend registry, with secret references; don't store keys in HTML.
-- **Unsupported operations:** numeric condition operators, trim/replace/json-field local tools and PDF input uploads remain preview-only. TikZ PDF/PNG compilation works in the cloud **only when the private compiler is deployed and COMPILER_URL is configured**. The Run action clearly blocks unsupported workflows rather than simulating success.
+- **Unsupported operations:** the direct PDF workflow input now supports all-page embedded-text extraction and single-page vision, but not automatic visual OCR of the full PDF. TikZ PDF/PNG compilation works in the cloud **only when the private compiler is deployed and COMPILER_URL is configured**. The Run action clearly blocks unsupported workflows rather than simulating success.
 - **Real results:** the inspector distinguishes actual cloud results from Preview simulations and supports cloud output-bundle exports.
 - **Limit:** The direct `execute` endpoint returns a completed result but does not create a persisted run record. Published workflow/job execution uses separate backend APIs.
 - **Admin-only access:** The page hides behind Firebase sign-in, and each backend request contains a fresh ID token. The public Firebase web config is not a secret. Backend authorization, not UI hiding, enforces access.
@@ -121,3 +121,15 @@ untrusted public TeX compilation are **not** implemented. Workflow nodes run
 sequentially in topological order to preserve checkpoints and side-effect
 consistency. Treating preview animations as parallel cloud work would be
 misleading.
+
+
+## PDF input directly in Studio (November 2026)
+
+Studio → Input accepts PDFs up to 10 MiB alongside PNG/JPEG. Choose either
+**Embedded text — all PDF pages** or **Vision — one selected PDF page**.
+Files → **Use full PDF in Studio** can reuse a privately stored PDF without
+uploading it again. Text mode is not OCR; scanned pages and diagrams need
+page-vision review. The backend must advertise pdf.workflow_input=true, and
+Studio, Execution and Worker must run matching backend images. The PDF model
+receives only extracted text or the selected page PNG, not arbitrary URLs or
+base64 PDF data. Whole-PDF visual OCR batching is a separate future feature.

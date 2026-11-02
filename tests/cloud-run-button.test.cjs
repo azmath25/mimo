@@ -36,6 +36,7 @@ function harness(options = {}) {
   };
   const ctx = {
     state,
+    isPdfInputFile: file => !!file && (file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '')),
     $:selector => {
       const key=selector.replace(/^#/, "");
       if (!nodes.has(key)) throw Error("Unknown DOM selector " + selector);
@@ -178,4 +179,49 @@ test("Studio gives explicit user controls to clear previous input file",()=>{
   assert.match(html,/role="status" aria-live="polite" hidden/);
   assert.match(html,/window\.MimoCloud\.uploadArtifact\(state\.initialFile\)/);
   assert.match(html,/kind:'mimo_image_artifact'/);
+});
+
+test("a full PDF uploads securely and enters the text-extraction workflow", async()=>{
+  const h=harness({file:{name:"exam.pdf",type:"application/pdf",size:2200}});
+  h.state.initial.pdfMode="text";
+  h.state.initial.pdfPage=1;
+  await h.run();
+  assert.equal(h.uploads.length,1);
+  const payload=h.received[0][1].body.input;
+  assert.equal(payload.kind,"mimo_pdf_artifact");
+  assert.equal(payload.artifact_id,"artifact-xyz");
+  assert.equal(payload.mode,"text");
+  assert.equal(payload.page_number,1);
+  assert.equal(payload.text,"Find x when 2x+3=7");
+  assert.match(h.status,/completed/);
+});
+
+test("a PDF vision run preserves the user's chosen page and avoids uploading raw PDF in JSON",async()=>{
+  const h=harness({file:{name:"scanned.pdf",type:"application/pdf",size:3200}});
+  h.state.initial.pdfMode="vision_page";
+  h.state.initial.pdfPage=3;
+  await h.run();
+  const payload=h.received[0][1].body.input;
+  assert.equal(payload.kind,"mimo_pdf_artifact");
+  assert.equal(payload.mode,"vision_page");
+  assert.equal(payload.page_number,3);
+  assert.equal(payload.artifact_id,"artifact-xyz");
+  assert.doesNotMatch(JSON.stringify(payload),/%PDF|base64/);
+});
+
+test("a PDF already stored in Files can be run without uploading it again",async()=>{
+  const h=harness();
+  h.state.initialCloudArtifact="00000000-0000-4000-8000-000000000056";
+  h.state.initialCloudMediaType="application/pdf";
+  h.state.initial.pdfMode="vision_page";
+  h.state.initial.pdfPage=2;
+  await h.run();
+  assert.equal(h.uploads.length,0);
+  assert.equal(h.received.length,1);
+  const payload=h.received[0][1].body.input;
+  assert.equal(payload.kind,"mimo_pdf_artifact");
+  assert.equal(payload.artifact_id,h.state.initialCloudArtifact);
+  assert.equal(payload.mode,"vision_page");
+  assert.equal(payload.page_number,2);
+  assert.match(h.status,/completed/);
 });
