@@ -6,7 +6,7 @@
 <div class="mg-grid">
   <div class="mg-card"><span class="mg-stat">Total recorded spend</span><div class="mg-metric" id="totalSpend">—</div><div class="mg-metric-label">Lifetime USD across recorded calls</div></div>
   <div class="mg-card"><span class="mg-stat">AI calls</span><div class="mg-metric" id="totalCalls">—</div><div class="mg-metric-label">Recorded model invocations</div></div>
-  <div class="mg-card"><span class="mg-stat">Active spending policies</span><div class="mg-metric" id="totalPolicies">—</div><div class="mg-metric-label">Global and model-specific thresholds</div></div>
+  <div class="mg-card"><span class="mg-stat">Active spending policies</span><div class="mg-metric" id="totalPolicies">—</div><div class="mg-metric-label">Global, model and project-level thresholds</div></div>
 </div>
 <div class="mg-alert warn"><strong>Limits are checked before each model call.</strong> A single call can exceed the remaining amount; limits are not a guaranteed exact billing cap. Totals are cumulative, not monthly. For accurate estimates, register provider-specific token pricing in <a href="./models.html">AI models</a>.</div>
 <div class="mg-section"><h2>Spending policies</h2></div>
@@ -14,8 +14,8 @@
 <div class="mg-section"><h2>Create or update a spending policy</h2></div>
 <div class="mg-card"><form id="budgetForm">
   <div class="mg-fields">
-    <div class="mg-field"><label for="budgetScope">Applies to</label><select id="budgetScope"><option value="global">All models (global)</option><option value="model">One registered model</option></select></div>
-    <div class="mg-field" id="budgetModelWrap" hidden><label for="budgetModel">Model ID</label><select id="budgetModel"></select></div>
+    <div class="mg-field"><label for="budgetScope">Applies to</label><select id="budgetScope"><option value="global">All models (global)</option><option value="model">One registered model</option><option value="project">One external API project</option></select></div>
+    <div class="mg-field" id="budgetModelWrap" hidden><label for="budgetModel">Model ID</label><select id="budgetModel"></select></div><div class="mg-field" id="budgetProjectWrap" hidden><label for="budgetProject">API project</label><select id="budgetProject"></select></div>
     <div class="mg-field"><label for="budgetHard">Hard threshold (USD)</label><input id="budgetHard" required type="number" min="0.01" step="0.01" placeholder="10.00"></div>
     <div class="mg-field"><label for="budgetSoft">Warning threshold (USD)</label><input id="budgetSoft" required type="number" min="0" step="0.01" value="0"></div>
   </div>
@@ -25,6 +25,7 @@
 </form></div>
 <div class="mg-section"><h2>Usage by model</h2></div>
 <div id="usageByModel" class="mg-grid two"><div class="mg-empty">Loading model usage…</div></div>
+<div class="mg-section"><h2>Usage by external project</h2></div><div id="usageByProject" class="mg-grid two"><div class="mg-empty">Loading project attribution…</div></div>
 <div class="mg-section"><h2>Recent provider requests</h2><span class="mg-hint">Up to 30 recorded calls</span></div>
 <div class="mg-card" style="overflow-x:auto"><table class="mg-table"><thead><tr><th>Model</th><th>Input tokens</th><th>Output tokens</th><th>Cost</th></tr></thead><tbody id="usageCalls"><tr><td colspan="4">Loading…</td></tr></tbody></table></div>
 </div></main><script src="./site.js"></script><script src="./budgets.js"></script><script type="module" src="./cloud-auth.js"></script></body></html>
