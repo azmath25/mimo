@@ -10,7 +10,8 @@ test("Studio exposes read-only task-plan preview",()=>{
  assert.match(html,/id="planDialog"/);
  assert.match(html,/\/v1\/workflows\/plan/);
  assert.match(html,/maximum_ai_calls/);
- assert.match(html,/parallel widths are theoretical/);
+ assert.match(html,/Opt-in parallel mode schedules up to four/);
+ assert.match(html,/parallelExecutionEnabled/);
 });
 test("Studio budgets include external-project thresholds and cost attribution",()=>{
  const html=read("budgets.html"),code=read("budgets.js");
