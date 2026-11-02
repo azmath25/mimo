@@ -60,6 +60,10 @@
         const budget = Number(n.maxTokens ?? 1024);
         config.max_tokens = Number.isInteger(budget) && budget >= 64 && budget <= 16384 ? budget : 1024;
         config.response = {kind: ["image","json","code","chat"].includes(n.output)?n.output:"text", delivery:"complete"};
+        if(n.agentEnabled===true){
+          config.agent={enabled:true,max_steps:Number(n.agentMaxSteps||4),
+            tools:asArray(n.agentTools).filter(x=>typeof x==="string")};
+        }
         if (n.output==="image") {
           config.response.size = n.imageSize||"1024x1024";
           config.response.n = Number(n.imageCount||1);
@@ -88,7 +92,7 @@
     return {
       schema_version: 1, workflow_id: id, title: String(flow.name || "Untitled workflow"),
       inputs: {mimo_ui: flow},
-      outputs: {}, nodes, edges
+      outputs: {exports: asArray(flow.apiExports).map(e=>({...e}))}, nodes, edges
     };
   }
   function fromBackend(definition) {
@@ -104,12 +108,18 @@
       maxTokens: n.config?.max_tokens || 1024,
       toolKind: n.config?.tool === "upper" ? "uppercase" : n.config?.tool === "lower" ? "lowercase" : n.config?.tool || "trim",
       branches: asArray(n.config?.ports).map(port => ({id:port,label:port,op:"==",value:""})),
-      accept: ["text","document","image","chat"], output: "text"
+      accept: ["text","document","image","chat"],
+      output: n.type==="ai" && ["text","json","code","chat","image"].includes(n.config?.response?.kind)
+        ? n.config.response.kind : "text",
+      agentEnabled: n.config?.agent?.enabled===true,
+      agentMaxSteps: n.config?.agent?.max_steps||4,
+      agentTools: asArray(n.config?.agent?.tools)
     }));
     return {
       kind:"mimo/workflow", version:4, name:definition?.title || "Imported cloud workflow",
       nodes, edges:asArray(definition?.edges).map(e=>({from:e.source,to:e.target,...(e.source_port && e.source_port !== "out" ? {branchId:e.source_port} : {})})),
-      initialInput:{format:"text",text:"",fileName:""}, workflowGoal:"", customBlocks:{}
+      initialInput:{format:"text",text:"",fileName:""}, workflowGoal:"", customBlocks:{},
+      apiExports:asArray(definition?.outputs?.exports)
     };
   }
   function runIssues(flow, models, capabilities = {}) {
@@ -132,6 +142,17 @@
         errors.push("A connection references a block that no longer exists.");
       }
     }
+    const names=new Set();
+    for(const item of asArray(flow?.apiExports)){
+      if(!item||typeof item.name!=="string"||!/^[a-z][a-z0-9_]{0,63}$/.test(item.name)||names.has(item.name))
+        errors.push("API exports need unique lowercase names.");
+      else names.add(item.name);
+      if(typeof item?.source!=="string"||!reachable.has(item.source))
+        errors.push("API export source must be connected to an Input block.");
+      if(item?.schema!==undefined && (typeof item.schema!=="object"||item.schema===null||Array.isArray(item.schema)))
+        errors.push("API export schema must be a JSON Schema object.");
+    }
+    if(asArray(flow?.apiExports).length>16)errors.push("Only 16 named API exports are supported.");
     for (const n of nodes) {
       const type = backendType(n);
       if(type!=="input" && !edges.some(e=>e.to===n.id)){
@@ -150,6 +171,14 @@
       }
       if (type === "ai" && !asArray(models).some(m=>m.id === resolveModel(n, models) && m.enabled)) {
         errors.push("Configure an enabled backend model for ‘" + n.name + "’ before cloud execution.");
+      }
+      if(type==="ai" && n.agentEnabled===true){
+        const steps=Number(n.agentMaxSteps||4),tools=asArray(n.agentTools);
+        if(!Number.isInteger(steps)||steps<1||steps>8)
+          errors.push("Agent "+n.name+" must use 1–8 model steps.");
+        if(n.output==="image")errors.push("Autonomous agents cannot directly generate images.");
+        if(tools.some(t=>!["upper","lower","trim","replace","json_field"].includes(t))||new Set(tools).size!==tools.length)
+          errors.push("Agent "+n.name+" uses an unsupported or duplicated tool.");
       }
       if(type === "ai" && n.maxTokens !== undefined &&
          (!Number.isInteger(Number(n.maxTokens)) || Number(n.maxTokens)<64 || Number(n.maxTokens)>16384)) {
