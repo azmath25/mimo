@@ -8,7 +8,7 @@
   <div class="mg-card"><span class="mg-stat">AI calls</span><div class="mg-metric" id="totalCalls">—</div><div class="mg-metric-label">Recorded model invocations</div></div>
   <div class="mg-card"><span class="mg-stat">Active spending policies</span><div class="mg-metric" id="totalPolicies">—</div><div class="mg-metric-label">Global, model and project-level thresholds</div></div>
 </div>
-<div class="mg-alert warn"><strong>Limits are checked before each model call.</strong> A single call can exceed the remaining amount; limits are not a guaranteed exact billing cap. Totals are cumulative, not monthly. For accurate estimates, register provider-specific token pricing in <a href="./models.html">AI models</a>.</div>
+<div class="mg-alert warn"><strong>Provider cost controls use estimated spending reservations.</strong> They prevent concurrent calls from claiming the same available budget, but provider bills may exceed estimates. Network failures can retain an unresolved hold until reviewed. All displayed model costs are cumulative and exclude cloud infrastructure. Maintain correct USD prices in <a href="./models.html">AI models</a>.</div>
 <div class="mg-section"><h2>Spending policies</h2></div>
 <div id="policyList" class="mg-list"><div class="mg-empty">Loading policies…</div></div>
 <div class="mg-section"><h2>Create or update a spending policy</h2></div>
@@ -26,6 +26,9 @@
 <div class="mg-section"><h2>Usage by model</h2></div>
 <div id="usageByModel" class="mg-grid two"><div class="mg-empty">Loading model usage…</div></div>
 <div class="mg-section"><h2>Usage by external project</h2></div><div id="usageByProject" class="mg-grid two"><div class="mg-empty">Loading project attribution…</div></div>
+<div class="mg-section"><h2>Outstanding provider reservations</h2><span class="mg-hint" id="reservationSummary">Checking…</span></div>
+<div class="mg-list" id="budgetReservations" role="status" aria-live="polite"><div class="mg-empty">Loading reservations…</div></div>
+<div class="mg-alert warn" style="margin-top:12px">A reservation marked uncertain may represent a billable provider request whose response was lost. Do not assume that an unresolved hold is free money.</div>
 <div class="mg-section"><h2>Recent provider requests</h2><span class="mg-hint">Up to 30 recorded calls</span></div>
 <div class="mg-card" style="overflow-x:auto"><table class="mg-table"><thead><tr><th>Model</th><th>Input tokens</th><th>Output tokens</th><th>Cost</th></tr></thead><tbody id="usageCalls"><tr><td colspan="4">Loading…</td></tr></tbody></table></div>
 </div></main><script src="./site.js"></script><script src="./budgets.js"></script><script type="module" src="./cloud-auth.js"></script></body></html>
