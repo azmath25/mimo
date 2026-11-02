@@ -29,6 +29,24 @@
 <div class="mg-section"><h2>Outstanding provider reservations</h2><span class="mg-hint" id="reservationSummary">Checking…</span></div>
 <div class="mg-list" id="budgetReservations" role="status" aria-live="polite"><div class="mg-empty">Loading reservations…</div></div>
 <div class="mg-alert warn" style="margin-top:12px">A reservation marked uncertain may represent a billable provider request whose response was lost. Do not assume that an unresolved hold is free money.</div>
+<div class="mg-section"><h2>Reconcile an uncertain charge</h2><span class="mg-hint">Administrator verification required</span></div>
+<div class="mg-card">
+  <form id="reconcileBudgetForm">
+    <p class="mg-hint">Check the provider's real billing records before changing a hold. The action is permanently audited and may change available spending allowance. Pending holds less than one hour old cannot be resolved.</p>
+    <div class="mg-fields">
+      <div class="mg-field"><label for="reservationId">Unresolved reservation</label><select id="reservationId" required></select></div>
+      <div class="mg-field"><label for="reconcileDecision">Verified outcome</label><select id="reconcileDecision"><option value="not_billed">Confirmed not billed</option><option value="billed">Confirmed billed</option></select></div>
+      <div class="mg-field span"><label for="reconcileEvidence">Provider invoice or evidence reference</label><input id="reconcileEvidence" required minlength="8" maxlength="500" placeholder="invoice-2026-11-..." autocomplete="off"></div>
+      <div class="mg-field span"><label for="reconcileReason">Explanation of verification</label><textarea id="reconcileReason" required minlength="20" maxlength="2000" rows="3" placeholder="I verified the provider invoice and determined..."></textarea></div>
+      <div class="mg-field"><label for="reconcileProviderRequest">Provider request ID (billed only)</label><input id="reconcileProviderRequest" maxlength="128" autocomplete="off"></div>
+      <div class="mg-field"><label for="reconcileActualUsd">Actual provider charge, USD (billed only)</label><input id="reconcileActualUsd" type="number" min="0" step="0.000001" value="0"></div>
+    </div>
+    <div class="mg-actions"><button id="submitBudgetReconciliation" class="mg-btn primary" type="submit">Record verified decision</button></div>
+    <div class="mg-feedback" id="budgetReconcileFeedback" role="status" aria-live="polite"></div>
+  </form>
+</div>
+<div class="mg-section"><h2>Recent charge reconciliations</h2></div>
+<div id="reconciliationAudit" class="mg-list"><div class="mg-empty">Loading reconciliation history…</div></div>
 <div class="mg-section"><h2>Recent provider requests</h2><span class="mg-hint">Up to 30 recorded calls</span></div>
 <div class="mg-card" style="overflow-x:auto"><table class="mg-table"><thead><tr><th>Model</th><th>Input tokens</th><th>Output tokens</th><th>Cost</th></tr></thead><tbody id="usageCalls"><tr><td colspan="4">Loading…</td></tr></tbody></table></div>
 </div></main><script src="./site.js"></script><script src="./budgets.js"></script><script type="module" src="./cloud-auth.js"></script></body></html>
