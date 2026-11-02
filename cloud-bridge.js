@@ -6,7 +6,8 @@
     if (node.type === "input" || node.type === "output") return node.type;
     const execution = node.execution || (node.type === "condition" ? "condition" : ["tool", "tikz"].includes(node.type) ? "tool" : "ai");
     if (execution === "condition") return "condition";
-    if (execution === "tool") return node.toolKind === "tikz" || node.type === "tikz" ? "compiler" : "tool";
+    if (execution === "tool") return node.toolKind === "tikz" || node.type === "tikz" ? "compiler" :
+      node.toolKind === "github-issue" || node.type === "connector" ? "connector" : "tool";
     return "ai";
   };
   function resolveModel(node, models) {
@@ -68,6 +69,12 @@
           config.response.size = n.imageSize||"1024x1024";
           config.response.n = Number(n.imageCount||1);
         }
+      } else if (type === "connector") {
+        config.installation_id = String(n.connectorInstallation || "");
+        config.operation = n.connectorOperation === "read_issue" ? "read_issue" : "create_issue";
+        config.args = config.operation === "read_issue"
+          ? {issue_number:String(n.connectorNumber || "{{inputs.1}}")}
+          : {title:String(n.connectorTitle || ""),body:String(n.connectorBody ?? "{{inputs.1}}")};
       } else if (type === "tool") {
         config.tool = ({uppercase: "upper", lowercase: "lower", trim: "trim", replace: "replace", "json-field": "json_field"})[n.toolKind] || String(n.toolKind || "unsupported");
         config.input = "{{inputs.1}}";
@@ -104,10 +111,15 @@
     const nodes = asArray(definition?.nodes).map((n, i) => ({
       id: String(n.id), type: n.type === "ai" ? "spark" : n.type === "compiler" ? "tikz" : n.type,
       name: String(n.config?.name || n.type), x: 60 + (i % 4) * 320, y: 130 + Math.floor(i / 4) * 240,
-      execution: n.type === "tool" || n.type === "compiler" ? "tool" : n.type === "condition" ? "condition" : "ai",
+      execution: ["tool","compiler","connector"].includes(n.type) ? "tool" : n.type === "condition" ? "condition" : "ai",
       prompt: n.config?.prompt || "", model: n.config?.model_id || "",
       maxTokens: n.config?.max_tokens || 1024,
-      toolKind: n.config?.tool === "upper" ? "uppercase" : n.config?.tool === "lower" ? "lowercase" : n.config?.tool || "trim",
+      toolKind: n.type==="connector" ? "github-issue" : n.config?.tool === "upper" ? "uppercase" : n.config?.tool === "lower" ? "lowercase" : n.config?.tool || "trim",
+      connectorInstallation:n.config?.installation_id||"",
+      connectorOperation:n.config?.operation||"read_issue",
+      connectorNumber:String(n.config?.args?.issue_number||"{{inputs.1}}"),
+      connectorTitle:n.config?.args?.title||"",
+      connectorBody:n.config?.args?.body||"{{inputs.1}}",
       branches: asArray(n.config?.ports).map(port => ({id:port,label:port,op:"==",value:""})),
       accept: ["text","document","image","chat"],
       output: n.type==="ai" && ["text","json","code","chat","image"].includes(n.config?.response?.kind)
@@ -170,6 +182,16 @@
           errors.push("Unknown input combination for " + n.name + ".");
         if (n.source === "manual" && !String(n.manualInput||"").trim())
           errors.push("Manual input is empty for " + n.name + ".");
+      }
+      if (type === "connector") {
+        if(!/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/.test(String(n.connectorInstallation||"")))
+          errors.push("Connector ‘"+n.name+"’ needs a valid installed adapter ID.");
+        if(!["create_issue","read_issue"].includes(n.connectorOperation))
+          errors.push("Connector ‘"+n.name+"’ must choose an allowed operation.");
+        if(n.connectorOperation==="create_issue" && !String(n.connectorTitle||"").trim())
+          errors.push("Connector ‘"+n.name+"’ requires an issue title.");
+        if(n.connectorOperation==="read_issue" && !String(n.connectorNumber||"").trim())
+          errors.push("Connector ‘"+n.name+"’ requires an issue number.");
       }
       if (type === "ai" && !asArray(models).some(m=>m.id === resolveModel(n, models) && m.enabled)) {
         errors.push("Configure an enabled backend model for ‘" + n.name + "’ before cloud execution.");
