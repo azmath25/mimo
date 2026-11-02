@@ -306,9 +306,77 @@ function canvasPoint(cx,cy){const r=canvas.getBoundingClientRect();return{x:(cx-
 function applyView(){world.style.transform=`translate(${state.tx}px,${state.ty}px) scale(${state.scale})`;$('#zoomLabel').textContent=Math.round(state.scale*100)+'%';canvas.style.backgroundPosition=`${state.tx}px ${state.ty}px`;canvas.style.backgroundSize=`${20*state.scale}px ${20*state.scale}px`}
 function fitView(){if(!state.nodes.length){Object.assign(state,{scale:1,tx:50,ty:80});applyView();return}const minX=Math.min(...state.nodes.map(n=>n.x))-25,maxX=Math.max(...state.nodes.map(n=>n.x+(executionOf(n)==='condition'?365:232)))+25,minY=Math.min(...state.nodes.map(n=>n.y))-70,maxY=Math.max(...state.nodes.map(n=>n.y+(executionOf(n)==='condition'?Math.max(177,48*(n.branches||[]).length+65):177)))+75;const w=Math.max(maxX-minX,350),h=Math.max(maxY-minY,300),cw=canvas.clientWidth,ch=canvas.clientHeight;state.scale=Math.max(.34,Math.min(1.05,(cw-54)/w,(ch-160)/h));state.tx=(cw-w*state.scale)/2-minX*state.scale;state.ty=(ch-h*state.scale)/2-minY*state.scale;applyView()}
 function zoom(by){const cx=canvas.clientWidth/2,cy=canvas.clientHeight/2,old=state.scale;state.scale=Math.max(.35,Math.min(1.7,old*by));state.tx=cx-(cx-state.tx)*state.scale/old;state.ty=cy-(cy-state.ty)*state.scale/old;applyView()}
-function selectNode(id){state.selected=id;state.selectedEdge=null;state.tab='edit';setTabs();renderSelection();renderInspector();if(matchMedia('(max-width:640px)').matches)$('#inspector').classList.add('open')}
-function selectEdge(i){state.selectedEdge=i;state.selected=null;state.tab='edit';setTabs();renderSelection();renderInspector()}
-function setTabs(){$$('.inspector-tab').forEach(e=>e.classList.toggle('active',e.dataset.tab===state.tab))}
+// Presentation-only state; never persisted into workflow JSON or sent to the backend.
+const studioApp=$('.app');
+const studioPanes={library:true,inspector:false,focus:false,restore:null};
+function narrowWorkspace(){return matchMedia('(max-width:850px)').matches}
+function mobileWorkspace(){return matchMedia('(max-width:640px)').matches}
+function updatePaneButtons(){
+  const left=narrowWorkspace()?$('#library').classList.contains('open'):studioPanes.library;
+  const right=mobileWorkspace()?$('#inspector').classList.contains('open'):studioPanes.inspector;
+  $('#toggleLibrary').setAttribute('aria-expanded',String(left));
+  $('#toggleInspector').setAttribute('aria-expanded',String(right));
+  $('#focusCanvas').setAttribute('aria-pressed',String(studioPanes.focus));
+  $('#focusCanvas').textContent=studioPanes.focus?'Exit focus':'⛶ Focus';
+  const label=$('#toggleInspector .toggle-label');
+  if(label)label.textContent=state.tab==='run'?'Results':'Details';
+}
+function syncPaneLayout(refit=false){
+  studioApp.classList.toggle('library-hidden',!studioPanes.library);
+  studioApp.classList.toggle('inspector-hidden',!studioPanes.inspector);
+  updatePaneButtons();
+  if(refit)requestAnimationFrame(fitView);
+}
+function showInspectorForSelection(){
+  if(mobileWorkspace()){$('#inspector').classList.add('open');updatePaneButtons();return}
+  if(!studioPanes.inspector){
+    studioPanes.inspector=true;studioPanes.focus=false;
+    syncPaneLayout(true);
+  }
+}
+function toggleLibraryPane(){
+  if(narrowWorkspace()){
+    $('#library').classList.toggle('open');
+    updatePaneButtons();
+    return;
+  }
+  studioPanes.library=!studioPanes.library;studioPanes.focus=false;
+  syncPaneLayout(true);
+}
+function toggleInspectorPane(){
+  if(mobileWorkspace()){
+    $('#inspector').classList.toggle('open');updatePaneButtons();
+    return;
+  }
+  studioPanes.inspector=!studioPanes.inspector;studioPanes.focus=false;
+  syncPaneLayout(true);
+}
+function toggleCanvasFocus(){
+  if(!studioPanes.focus){
+    studioPanes.restore={library:studioPanes.library,inspector:studioPanes.inspector};
+    studioPanes.library=false;studioPanes.inspector=false;studioPanes.focus=true;
+    $('#library').classList.remove('open');$('#inspector').classList.remove('open');
+  }else{
+    studioPanes.library=studioPanes.restore?.library??true;
+    studioPanes.inspector=studioPanes.restore?.inspector??false;
+    studioPanes.restore=null;studioPanes.focus=false;
+  }
+  syncPaneLayout(true);
+}
+function selectNode(id,openDetails=true){
+  state.selected=id;state.selectedEdge=null;state.tab='edit';
+  setTabs();renderSelection();renderInspector();
+  if(openDetails)showInspectorForSelection();
+}
+function selectEdge(i){
+  state.selectedEdge=i;state.selected=null;state.tab='edit';
+  setTabs();renderSelection();renderInspector();
+  showInspectorForSelection();
+}
+function setTabs(){
+  $('.inspector-tab').forEach(e=>e.classList.toggle('active',e.dataset.tab===state.tab));
+  updatePaneButtons();
+}
 function renderNodes(){const numbers=workflowOrdering().numbers;N.innerHTML=state.nodes.map((n,i)=>{const t=typeInfo(n.type),exec=executionOf(n),io=n.type==='input'||n.type==='output',isCond=exec==='condition',isTool=exec==='tool',source=n.type==='input'?'Original workflow data':n.type==='output'?`${state.edges.filter(e=>e.to===n.id).length} chosen outputs`:n.source==='workflow'?'Starting input':n.source==='manual'?'Manual input':'Connected input';const branches=isCond?cleanBranches(n.branches):[];const h=isCond?Math.max(164,38+branches.length*48+12):0;const babies=isCond?branches.map((b,j)=>`<div class="branch-baby ${state.results[n.id]?.data?.chosenBranchId===b.id?'chosen':''}" style="top:${38+j*48}px" title="${safe(b.label)}"><span class="branch-bullet">${j+1}</span><span class="branch-label">${safe(b.label)}</span><div class="port output" data-port="out" data-branch="${safe(b.id)}" title="Connect ${safe(b.label)} route"></div></div>`).join(''):'';return `<div class="node ${io?'io '+(n.type==='output'?'output-node':''):''} ${isCond?'condition-node':''} ${isTool?'tool-node':''} ${state.selected===n.id?'selected':''} ${state.runStatus[n.id]||''}" data-id="${safe(n.id)}" style="left:${n.x}px;top:${n.y}px;${isCond?'height:'+h+'px;':''}">${n.type==='input'?'':`<div class="port input" data-port="in" title="Connect a block here"></div><span class="port-label in">IN</span>`}<div class="node-main"><div class="node-top"><div class="node-icon">${icon(t.icon,20)}</div><div class="node-info"><div class="node-title">${safe(n.name)}</div><div class="node-type">${n.type==='input'?'Pass-through · no AI':n.type==='output'?'Collect · no AI':isCond?(n.conditionMode==='ai'?'AI classifier':'Rule · no AI'):isTool?'Tool · no AI':safe(t.name)}</div></div><div class="node-number">${String(numbers.get(n.id)||i+1).padStart(2,'0')}</div></div><div class="node-summary">${safe(n.summary||'Ready for your instructions.')}</div><div class="node-footer"><span class="node-tag">${safe(source)}</span><span class="node-tag right">${n.type==='input'?safe(state.initial.format.toUpperCase()):n.type==='output'?'COLLECT':isCond?branches.length+' ROUTES':safe(n.output.toUpperCase())}</span>${io||isTool||isCond&&n.conditionMode==='rule'?'':`<span class="node-tag model-tag" title="${safe(n.provider+' / '+n.model)}">${safe(n.model)}</span>`}</div></div>${babies}${n.type==='output'||isCond?'':`<div class="port output" data-port="out" title="Connect to as many blocks as you want"></div><span class="port-label out">OUT</span>`}</div>`}).join('')}
 function renderEdges(){P.innerHTML=state.edges.map((e,i)=>{const a=node(e.from),b=node(e.to);if(!a||!b)return '';const start=pt(a,'out',e.branchId),finish=pt(b,'in'),chosen=state.results[a.id]?.data?.chosenBranchId,routeOff=executionOf(a)==='condition'&&state.lastRun&&chosen!==e.branchId;const active=state.lastRun&&!routeOff&&state.runStatus[a.id]==='done';const label=executionOf(a)==='condition'?(a.branches||[]).find(v=>v.id===e.branchId)?.label:'';return `<g class="edge-group ${state.selectedEdge===i?'selected':''} ${routeOff?'inactive':active?'active-edge':''}" data-edge="${i}"><path class="edge-visible" d="${path(start,finish)}" marker-end="url(#edgeArrow)"/><path class="edge-hit" d="${path(start,finish)}"/><g class="edge-delete" data-remove-edge="${i}" role="button" aria-label="Remove connection" tabindex="0" transform="translate(${(start.x+finish.x)/2},${(start.y+finish.y)/2})"><circle r="13"/><path d="M-4 -4L4 4M4 -4L-4 4"/></g>${label?`<text class="branch-path-label" x="${start.x+16}" y="${start.y-10}">${safe(label)}</text>`:''}</g>`}).join('')}
 
@@ -1042,7 +1110,7 @@ workspace.addEventListener('dragover',e=>{if(e.dataTransfer.types.includes('text
 workspace.addEventListener('dragleave',e=>{if(!workspace.contains(e.relatedTarget))workspace.classList.remove('drag-over')});
 workspace.addEventListener('drop',e=>{e.preventDefault();workspace.classList.remove('drag-over');const type=e.dataTransfer.getData('text/plain');if(!TYPES[type])return;const p=canvasPoint(e.clientX,e.clientY);templatePlace(type,p.x-116,p.y-70);closeMobile()});
 $('#outline').addEventListener('click',e=>{const b=e.target.closest('[data-outline]');if(!b)return;const n=node(b.dataset.outline);if(!n)return;selectNode(n.id);state.tx=canvas.clientWidth/2-(n.x+116)*state.scale;state.ty=canvas.clientHeight/2-(n.y+90)*state.scale;applyView()});
-$('#zoomIn').addEventListener('click',()=>zoom(1.16));$('#zoomOut').addEventListener('click',()=>zoom(1/1.16));$('#fitView').addEventListener('click',fitView);$('#toggleLibrary').addEventListener('click',()=>$('#library').classList.toggle('open'));$('#toggleInspector').addEventListener('click',()=>$('#inspector').classList.toggle('open'));
+$('#zoomIn').addEventListener('click',()=>zoom(1.16));$('#zoomOut').addEventListener('click',()=>zoom(1/1.16));$('#fitView').addEventListener('click',fitView);$('#toggleLibrary').addEventListener('click',toggleLibraryPane);$('#toggleInspector').addEventListener('click',toggleInspectorPane);$('#focusCanvas').addEventListener('click',toggleCanvasFocus);
 // Workflow, files, and user-controlled local storage.
 $('#workflowGuideBtn').addEventListener('click',()=>openDialog('guideDialog'));
 $('#workflowGuideSide').addEventListener('click',()=>{openDialog('guideDialog');closeMobile()});
@@ -1117,9 +1185,10 @@ const input=makeNode('input',80,210,{name:'Input',summary:'Configure the startin
 const collect=makeNode('output',445,210,{name:'Output',summary:'Collect connected results.'});
 state.nodes.push(input,collect);
 state.edges.push({from:input.id,to:collect.id});
+syncPaneLayout(false);
 renderAll();
-requestAnimationFrame(()=>{fitView();selectNode(input.id);$('#inspector').classList.remove('open')});
-window.addEventListener('resize',()=>applyView());
+requestAnimationFrame(()=>{fitView();selectNode(input.id,false);$('#inspector').classList.remove('open');updatePaneButtons()});
+window.addEventListener('resize',()=>{syncPaneLayout(false);requestAnimationFrame(fitView)});
 lastSavedSignature=draftSignature();savedLocation='new';updateDraftStatus();
 let deepLinkHandled=false;
 window.addEventListener('mimo:auth-changed',async()=>{
