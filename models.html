@@ -61,6 +61,29 @@
  <p class="mg-hint">Models appear in Studio by their <strong>internal model ID</strong>. You may register several models with the same secret reference (for example, <code>groq</code> for both GPT-OSS 20B and 120B). After initial keyring setup, no backend deployment is needed to add or rotate provider keys. Registration saves settings to Neon; Test sends a real request, so provider rate limits and charges may apply.</p>
  <div id="modelFeedback" class="mg-feedback" role="status" aria-live="polite"></div>
 </form></section>
+<div class="mg-section"><h2>Requests-per-minute policies</h2><span class="mg-hint">Per provider endpoint + remote model + API credential reference</span></div>
+<section class="mg-card" id="rpmPolicyPanel">
+ <div class="mg-alert warn"><strong>Configuration only — M-RPM.1.</strong>
+ These limits are saved in the backend, but are <strong>not enforced</strong> on provider calls yet. Concurrent-worker throttling and provider 429 handling are scheduled for M-RPM.2 and M-RPM.3. Do not rely on these settings to avoid charges or provider rate-limit errors.</div>
+ <form id="rpmPolicyForm" style="margin-top:15px">
+  <div class="mg-fields">
+   <div class="mg-field"><label for="rpmModelSelect">Registered model</label>
+    <select id="rpmModelSelect" required><option value="">Loading models…</option></select></div>
+   <div class="mg-field"><label for="rpmPolicyValue">Maximum requests per minute</label>
+    <input id="rpmPolicyValue" type="number" min="1" max="100000" step="1" required placeholder="e.g. 30"></div>
+  </div>
+  <p class="mg-hint" id="rpmPolicyIdentity">Select a model to inspect its effective policy.</p>
+  <p class="mg-hint">Two internal model IDs using the same adapter, canonical endpoint, provider model ID, and secret reference share one policy. A different credential reference has a separate policy, even if its secret value happens to be identical.</p>
+  <div class="mg-actions">
+   <button id="rpmPolicySave" class="mg-btn primary" type="submit">Save RPM configuration</button>
+   <button id="rpmPolicyRemove" class="mg-btn danger" type="button">Remove RPM configuration</button>
+   <button id="rpmPolicyRefresh" class="mg-btn" type="button">Refresh</button>
+  </div>
+  <div class="mg-feedback" id="rpmPolicyFeedback" role="status" aria-live="polite"></div>
+ </form>
+</section>
+<div class="mg-section"><h2>Saved RPM policies</h2></div>
+<div id="rpmPolicyList" class="mg-list"><div class="mg-empty">Loading configured policies…</div></div>
 <div class="mg-section"><h2>Secure provider API keys</h2></div>
 <section class="mg-card">
  <form id="providerKeyForm" autocomplete="off">
@@ -78,4 +101,4 @@
   <div class="mg-card"><h2>Test before using</h2><p>The Test action sends a short real prompt to the provider, then records its token usage and cost. Testing can incur provider charges.</p><a href="./budgets.html">Review spending controls ↗</a></div>
   <div class="mg-card"><h2>Change credentials securely</h2><p>Rotate a provider key in the secure form above. All models referencing it use the new version automatically.</p></div>
 </div>
-</div></main><script src="./site.js"></script><script src="./models.js"></script><script type="module" src="./cloud-auth.js"></script></body></html>
+</div></main><script src="./site.js"></script><script src="./models.js"></script><script src="./rpm-config.js"></script><script type="module" src="./cloud-auth.js"></script></body></html>
