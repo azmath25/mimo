@@ -32,6 +32,17 @@ async function choose(id){
   $("runRefresh").disabled=false;
   $("runResume").disabled=!["interrupted","failed","dispatch_failed"].includes(r.status);
   $("runCancel").disabled=!["started","running","queued","waiting_for_review"].includes(r.status);
+  const tasks=data.node_tasks||[];
+  $("nodeTaskList").innerHTML=tasks.length?tasks.map(t=>
+    '<article class="mg-row" data-task-node="'+safe(t.node_id)+'">'+
+    '<div class="mg-row-body"><strong>'+safe(t.node_id)+
+    ' · '+safe(t.status)+'</strong><small>Claims '+safe(t.claim_count)+
+    (t.lease_expires_at?' · lease '+safe(MimoSite.date(t.lease_expires_at)):'')+
+    '</small></div><div class="mg-row-actions">'+
+    (t.status==="waiting_for_review"&&r.status==="waiting_for_review"?
+      '<button type="button" class="mg-btn danger small" data-manual-recover>Manual recovery</button>':'')+
+    '</div></article>'
+  ).join(""):'<div class="mg-empty">This run does not have separate parallel node tasks.</div>';
   const items=data.checkpoints||[];
   $("checkpointList").innerHTML=items.length?items.map(c=>'<article class="mg-row" data-node="'+safe(c.node_id)+'"><div class="mg-row-body"><strong>'+safe(c.node_id)+' · '+safe(c.status)+'</strong><small>Attempt '+safe(c.attempt)+(c.chosen_port?' · branch '+safe(c.chosen_port):'')+'</small><details><summary>Inspect actual output</summary><pre class="mg-pre">'+safe(serialize(c.result))+'</pre></details></div><div class="mg-row-actions">'+
     (["failed","completed","interrupted"].includes(r.status)?'<button class="mg-btn small" data-action="retry">Retry from here</button>':'')+
@@ -64,6 +75,25 @@ async function reviews(){
   $("reviewsList").innerHTML=pending.length?pending.map(x=>'<article class="mg-card" data-review="'+safe(x.id)+'"><strong>Run '+safe(x.run_id)+' · node '+safe(x.node_id)+'</strong><details><summary>Review proposed content</summary><pre class="mg-pre">'+safe(serialize(x.proposed))+'</pre></details><div class="mg-field"><label>Correction (optional)</label><textarea rows="3" data-correction placeholder="Leave empty to approve unchanged"></textarea></div><div class="mg-actions"><button class="mg-btn primary small" data-decision="approve">Approve / correct</button><button class="mg-btn danger small" data-decision="reject">Reject</button><button class="mg-btn small" data-review-run>Inspect run</button></div></article>').join(""):'<div class="mg-empty">No pending reviews.</div>';
  }catch(e){note("Cannot load reviews: "+e.message,true)}
 }
+$("nodeTaskList").addEventListener("click",async e=>{
+  const button=e.target.closest("[data-manual-recover]");
+  if(!button||!selected||busy)return;
+  const node=button.closest("[data-task-node]")?.dataset.taskNode;
+  if(!node)return;
+  const explanation=window.prompt("Explain how you investigated the failed node, verified provider billing and confirmed whether retrying is safe. Minimum 30 characters:");
+  if(!explanation)return;
+  if(explanation.trim().length<30){note("A detailed investigation reason of at least 30 characters is required.",true);return}
+  if(!window.confirm("This may repeat a billable AI request or external side effect. The backend will deny recovery while unverified spending holds or pending action approvals remain. Authorize ONE explicit retry of node "+node+"?"))return;
+  busy=true;button.disabled=true;
+  try{
+    await api("/v1/runs/"+encodeURIComponent(selected)+"/recover-node",{
+      method:"POST",body:{node_id:node,reason:explanation.trim(),
+        acknowledge_possible_duplicate_charges:true}});
+    await choose(selected);await list();
+    note("Recovery authorized and recorded in run history.");
+  }catch(error){note(error.message,true)}
+  finally{busy=false;button.disabled=false}
+});
 $("runsList").addEventListener("click",e=>{const r=e.target.closest("[data-run]");if(r)choose(r.dataset.run)});
 $("checkpointList").addEventListener("click",async e=>{
  const btn=e.target.closest("[data-action]");if(!btn||!selected)return;
