@@ -9,7 +9,7 @@
 </style></head>
 <body data-page="tikz" style="margin:0"><main class="mg-page"><div class="mg-wrap">
 <section class="mg-hero"><div><span class="mg-eyebrow">Mathematical tools</span>
-<h1>TikZ Lab</h1><p>Compile real TikZ/LaTeX using Mimo's isolated TeX Live service. Preview the resulting PDF and download it without exposing compiler access to the browser.</p>
+<h1>TikZ Lab</h1><p>Compile real TikZ/LaTeX using Mimo's isolated TeX Live service. Preview and download PDF or PNG output without exposing compiler access to the browser.</p>
 </div></section>
 <div class="mg-alert warn" id="tikzServiceNotice">Checking whether your compiler service is enabled…</div>
 <div class="tikz-layout">
@@ -31,7 +31,7 @@
 <p id="tikzStatus" class="mg-feedback" role="status" aria-live="polite">Sign in and configure the compiler to begin.</p>
 <p class="mg-hint">Errors from TeX Live will appear above. The worker uses no shell escape, a source limit and a compile timeout. Only trusted administrators should submit source.</p>
 </section>
-<section class="mg-card"><div class="mg-section"><h2>PDF preview</h2></div>
+<section class="mg-card"><div class="mg-section"><h2 id="tikzPreviewTitle">PDF preview</h2></div>
 <iframe title="Compiled TikZ PDF" id="tikzPreview" class="tikz-preview"></iframe><img alt="Compiled TikZ PNG preview" id="tikzImagePreview" class="tikz-preview" style="object-fit:contain" hidden>
 </section></div></div></main>
 <script src="./site.js"></script><script src="./tikz.js"></script><script type="module" src="./cloud-auth.js"></script>
