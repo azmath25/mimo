@@ -9,6 +9,7 @@ const pages={
  "studio.html":"studio",
  "models.html":"models",
  "access.html":"access",
+ "connectors.html":"connectors",
  "budgets.html":"budgets"
 };
 
@@ -23,7 +24,7 @@ test("every management page links the shared shell and Firebase login",()=>{
   }
 });
 test("each page controller passes JavaScript syntax parsing",()=>{
-  for(const file of ["overview.js","workflows.js","models.js","access.js","budgets.js","site.js"]){
+  for(const file of ["overview.js","workflows.js","models.js","access.js","budgets.js","connectors.js","site.js"]){
     assert.doesNotThrow(()=>new vm.Script(fs.readFileSync(file,"utf8"),{filename:file}),file);
   }
 });
