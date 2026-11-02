@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mimo — Connectors & approvals</title><link rel="stylesheet" href="./site.css"></head>
+<body data-page="connectors" style="margin:0">
+<main class="mg-page"><div class="mg-wrap">
+  <section class="mg-hero"><div><span class="mg-eyebrow">Security / External actions</span>
+  <h1>Connectors & approvals</h1>
+  <p>Install trusted adapters, grant operations to external projects, and approve exact side-effecting requests. Tokens remain in backend Secret Manager; workflow prompts never contain credentials.</p></div>
+  <button class="mg-btn" id="refreshConnectors" type="button">Refresh</button></section>
+  <div class="mg-alert warn"><strong>Explicit approval is required for writes.</strong>
+  A project grant alone never allows a GitHub issue to be created. Before approving, review the exact request and verify its project and destination repository.
+  A timed-out action may already have succeeded remotely; uncertain actions are not retried automatically.</div>
+  <div class="mg-grid two">
+    <section class="mg-card"><h2>Install a trusted adapter</h2>
+      <form id="installForm">
+        <div class="mg-fields">
+          <div class="mg-field"><label for="installId">Installation ID</label><input id="installId" required maxlength="64" pattern="[a-zA-Z][a-zA-Z0-9_-]*" placeholder="github_research"></div>
+          <div class="mg-field"><label for="installAdapter">Adapter</label><select id="installAdapter"><option value="github_issues">GitHub Issues</option></select></div>
+          <div class="mg-field"><label for="installResource">Fixed repository (owner/repo)</label><input id="installResource" required maxlength="255" placeholder="organization/repository"></div>
+          <div class="mg-field"><label for="installSecret">Secret reference</label><input id="installSecret" required maxlength="128" placeholder="github_token"></div>
+        </div>
+        <div class="mg-actions"><button type="submit" class="mg-btn primary" id="saveInstallation">Save installation</button></div>
+      </form><p class="mg-hint">Create the credential in the server-side keyring first. This form stores only its reference, never its value.</p>
+      <div class="mg-feedback" id="installFeedback" role="status"></div>
+    </section>
+    <section class="mg-card"><h2>Grant a scoped operation</h2>
+      <form id="grantConnectorForm"><div class="mg-fields">
+        <div class="mg-field"><label for="connectorProject">API project</label><select id="connectorProject"></select></div>
+        <div class="mg-field"><label for="connectorInstallation">Installation</label><select id="connectorInstallation"></select></div>
+        <div class="mg-field"><label for="connectorOperation">Operation</label><select id="connectorOperation"><option value="read_issue">Read an issue</option><option value="create_issue">Create an issue — human approval</option></select></div>
+        <div class="mg-field"><label for="connectorEnabled">Permission</label><select id="connectorEnabled"><option value="true">Grant access</option><option value="false">Revoke access</option></select></div>
+      </div><div class="mg-actions"><button type="submit" id="saveConnectorGrant" class="mg-btn primary">Update grant</button></div></form>
+      <div class="mg-feedback" id="grantFeedback" role="status"></div>
+    </section>
+  </div>
+  <div class="mg-section"><h2>Installed adapters</h2></div><div id="installationList" class="mg-list"></div>
+  <div class="mg-section"><h2>Project grants</h2></div><div id="connectorGrantList" class="mg-list"></div>
+  <div class="mg-section"><h2>Actions awaiting human approval</h2></div>
+  <div id="approvalList" class="mg-list" aria-live="polite"></div>
+  <div class="mg-section"><h2>Notice</h2></div>
+  <div class="mg-alert">Approved side effects are still restricted to the installed adapter and fixed resource. The external project must keep its Mimo key on its own server, never in a browser.</div>
+</div></main>
+<script src="./site.js"></script>
+<script src="./connectors.js"></script>
+<script type="module" src="./cloud-auth.js"></script>
+</body></html>
