@@ -328,6 +328,9 @@ function syncPaneLayout(refit=false){
   if(refit)requestAnimationFrame(fitView);
 }
 function showInspectorForSelection(){
+  // Keep drag-and-drop usable while Focus mode is active. Details remains
+  // available from its toolbar toggle, without unexpectedly shrinking canvas.
+  if(studioPanes.focus)return;
   if(mobileWorkspace()){$('#inspector').classList.add('open');updatePaneButtons();return}
   if(!studioPanes.inspector){
     studioPanes.inspector=true;studioPanes.focus=false;
