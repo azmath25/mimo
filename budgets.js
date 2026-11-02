@@ -79,8 +79,8 @@
    e.preventDefault();
    const scope=$("budgetScope").value,scopeId=scope==="model"?$("budgetModel").value:scope==="project"?$("budgetProject").value:"";
    const hard=Number($("budgetHard").value),soft=Number($("budgetSoft").value);
-   if(!Number.isFinite(hard)||hard<=0||!Number.isFinite(soft)||soft<0||soft>hard){
-     info("Enter a positive hard limit and a soft limit between zero and the hard limit.",true);return;
+   if(!Number.isFinite(hard)||hard<0||!Number.isFinite(soft)||soft<0||soft>hard){
+     info("Enter a nonnegative hard limit (zero pauses calls) and a soft limit no higher than it.",true);return;
    }
    if(scope==="model"&&!scopeId){info("Select a registered model.",true);return}
    if(scope==="project"&&!scopeId){info("Select an external API project.",true);return}
