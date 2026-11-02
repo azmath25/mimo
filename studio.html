@@ -786,14 +786,69 @@ function renderFlowList(){
 }
 function openDialog(id){if(id==='guideDialog')refreshGuide();if(id==='inputDialog'){populateInputDialog()}if(id==='flowsDialog')renderFlowList();if(id==='checkDialog')renderCloudReadiness();$('#'+id).hidden=false;if(id==='guideDialog')refreshGuide()}
 function closeDialog(id){$('#'+id).hidden=true}
-function populateInputDialog(){$('#initialFormat').value=state.initial.format;$('#initialText').value=state.initial.text||'';$('#initialFile').value='';$('#inputFileHint').textContent=state.initialFile?`Current file: ${state.initialFile.name}. Choose a new one to replace it.`:state.initial.fileName?`Previous file: ${state.initial.fileName}. Re-select it to make its data available.`:'PNG/JPEG images upload to Mimo Cloud Storage only when you click Run in cloud; binary data is not included in workflow JSON.'}
-function applyInput(){const oldFormat=state.initial.format;const file=$('#initialFile').files[0];state.initial={format:$('#initialFormat').value,text:$('#initialText').value,fileName:file?file.name:(state.initialFile?state.initialFile.name:'')};if(file){state.initialCloudArtifact=null;state.initialFile=file;state.initial.format=file.type.startsWith('image/')?'image':['text/plain','text/markdown'].includes(file.type)?'text':'document'}else if(state.initial.format==='text'||oldFormat!==state.initial.format){state.initialFile=null;state.initial.fileName=''}closeDialog('inputDialog');renderAll();toast('Input updated for all Input blocks ♡')}
+function isPdfInputFile(file){return !!file&&(file.type==='application/pdf'||/\.pdf$/i.test(file.name||''))}
+function hasPdfInput(){return isPdfInputFile(state.initialFile)||(!!state.initialCloudArtifact&&state.initialCloudMediaType==='application/pdf')||(state.initial.format==='document'&&/\.pdf$/i.test(state.initial.fileName||''))}
+function updatePdfInputOptions(){
+  const selected=$('#initialFile').files[0];
+  const pdf=isPdfInputFile(selected)||(!selected&&hasPdfInput());
+  $('#pdfInputOptions').hidden=!pdf;
+  $('#pdfPageRow').hidden=!pdf||$('#pdfMode').value!=='vision_page';
+}
+function populateInputDialog(){
+  $('#initialFormat').value=state.initial.format;
+  $('#initialText').value=state.initial.text||'';
+  $('#initialFile').value='';
+  $('#pdfMode').value=state.initial.pdfMode==='vision_page'?'vision_page':'text';
+  $('#pdfPage').value=state.initial.pdfPage||1;
+  $('#inputFileHint').textContent=state.initialFile?
+    'Current file: '+state.initialFile.name+'. Choose a new one to replace it.':
+    state.initialCloudArtifact?'A file from Mimo Files is linked securely; select another file to replace it.':
+    state.initial.fileName?'Previous file: '+state.initial.fileName+'. Re-select it to make its data available.':
+    'PDFs and PNG/JPEG images upload to Mimo Cloud Storage when running. Files are not embedded in exported workflow JSON.';
+  updatePdfInputOptions();
+}
+function restoreLinkedPdfFromUrl(){
+  if(typeof location==='undefined')return;
+  const pdfId=new URL(location.href).searchParams.get('pdf_artifact');
+  if(!pdfId||!/^[0-9a-f-]{36}$/i.test(pdfId))return;
+  state.initialCloudArtifact=pdfId;
+  state.initialCloudMediaType='application/pdf';
+  state.initialFile=null;
+  state.initial={...state.initial,format:'document',fileName:'',pdfMode:state.initial.pdfMode||'text',pdfPage:state.initial.pdfPage||1};
+}
+function applyInput(){
+  const oldFormat=state.initial.format;
+  const file=$('#initialFile').files[0];
+  const selectedFormat=$('#initialFormat').value;
+  const mode=$('#pdfMode').value;
+  const page=Number($('#pdfPage').value);
+  state.initial={
+    format:selectedFormat,text:$('#initialText').value,
+    fileName:file?file.name:(state.initialFile?state.initialFile.name:state.initial.fileName||''),
+    pdfMode:mode==='vision_page'?'vision_page':'text',
+    pdfPage:Number.isInteger(page)&&page>=1&&page<=100?page:1
+  };
+  if(file){
+    state.initialCloudArtifact=null;
+    state.initialCloudMediaType=null;
+    state.initialFile=file;
+    state.initial.format=isPdfInputFile(file)?'document':file.type.startsWith('image/')?'image':selectedFormat;
+  }else if(selectedFormat==='text'||oldFormat!==selectedFormat){
+    state.initialFile=null;state.initialCloudArtifact=null;state.initialCloudMediaType=null;
+    state.initial.fileName='';
+  }
+  if(state.initialCloudArtifact&&state.initialCloudMediaType==='application/pdf')
+    state.initial.format='document';
+  closeDialog('inputDialog');
+  renderAll();
+  toast('Input updated for all Input blocks ♡');
+}
 function sanitizeNode(r){if(!r||typeof r!=='object')return null;const type=typeof r.type==='string'&&/^[a-zA-Z0-9_-]{1,90}$/.test(r.type)?r.type:'blank',t=typeInfo(type),rawId=string(r.id,75),id=/^[a-zA-Z0-9_-]{1,75}$/.test(rawId)?rawId:'';if(!id)return null;const allowed=FMT.includes(r.output)?r.output:t.output;const execution=['ai','tool','condition'].includes(r.execution)?r.execution:(t.execution||'ai');return {id,type,x:Number.isFinite(+r.x)?Math.max(-2000,Math.min(10000,+r.x)):50,y:Number.isFinite(+r.y)?Math.max(-2000,Math.min(10000,+r.y)):130,name:string(r.name,65)||t.name,summary:string(r.summary,140)||t.subtitle,prompt:string(r.prompt,10000),output:type==='input'?'text':type==='output'?'collection':allowed,execution,conditionMode:r.conditionMode==='ai'?'ai':'rule',conditionField:string(r.conditionField,120),branches:cleanBranches(r.branches),aiDemoBranch:string(r.aiDemoBranch,40),toolKind:TOOLS[r.toolKind]?r.toolKind:(t.toolKind||'trim'),toolEngine:['pdflatex','lualatex','xelatex','tectonic'].includes(r.toolEngine)?r.toolEngine:'pdflatex',compilerTarget:['pdf','svg','png'].includes(r.compilerTarget)?r.compilerTarget:'pdf',compilerEndpoint:string(r.compilerEndpoint,200)||'/api/compile/tikz',toolField:string(r.toolField,120),toolFind:string(r.toolFind,240),toolReplacement:string(r.toolReplacement,240),includeWorkflowGuide:r.includeWorkflowGuide===true,accept:Array.isArray(r.accept)?FMT.filter(x=>r.accept.includes(x)):FMT.slice(),source:['connected','workflow','manual'].includes(r.source)?r.source:t.source||'connected',combine:['all','first','latest'].includes(r.combine)?r.combine:'all',required:r.required!==false,report:r.report!==false,provider:MODELS.hasOwnProperty(r.provider)?r.provider:'OpenAI',model:string(r.model,100)||'gpt-6',maxTokens:Number.isInteger(Number(r.maxTokens))&&Number(r.maxTokens)>=64&&Number(r.maxTokens)<=16384?Number(r.maxTokens):1024}}
 function applyWorkflow(data,keepId=null){const r=data?.kind==='mimo/workflow'?data:data?.workflow||data;if(!r||!Array.isArray(r.nodes)||!Array.isArray(r.edges)||r.nodes.length>350||r.edges.length>1300)throw Error('That file is not a valid Mimo workflow.');if(r.customBlocks&&typeof r.customBlocks==='object'){for(const [id,b] of Object.entries(r.customBlocks)){if(/^c_[a-zA-Z0-9_-]{3,90}$/.test(id)&&!BASE[id])state.custom[id]=sanitizeBlock(b,id)}refreshTypes();storage(customKey,state.custom);buildTemplates();renderBuilderSaved()}
 const ids=new Set(),nodes=[];r.nodes.forEach(raw=>{const n=sanitizeNode(raw);if(n&&!ids.has(n.id)){ids.add(n.id);nodes.push(n)}});const edges=[],used=new Set();for(const e of r.edges){if(!e||!ids.has(e.from)||!ids.has(e.to)||e.from===e.to)continue;const a=nodes.find(n=>n.id===e.from),b=nodes.find(n=>n.id===e.to),key=e.from+'>'+e.to+':'+(e.branchId||'');if(executionOf(a)==='condition'&&!cleanBranches(a.branches).some(v=>v.id===e.branchId))continue;if(a.type==='output'||b.type==='input'||used.has(key))continue;used.add(key);edges.push({from:e.from,to:e.to,...(e.branchId?{branchId:e.branchId}:{})})}
 // Strip cyclic imported connections, rather than allowing an un-runnable graph.
 const accepted=[],reaches=(start,goal)=>{const seen=new Set(),stack=[start];while(stack.length){const at=stack.pop();if(at===goal)return true;if(seen.has(at))continue;seen.add(at);accepted.filter(v=>v.from===at).forEach(v=>stack.push(v.to))}return false};edges.forEach(e=>{if(!reaches(e.to,e.from))accepted.push(e)});
-state.nodes=nodes;state.edges=accepted;state.seq=Math.max(0,...nodes.map(n=>+n.id.match(/^b(\d+)$/)?.[1]||0));state.selected=null;state.selectedEdge=null;state.runStatus={};state.results={};state.lastRun=null;state.lastRunKind=null;state.flowId=keepId;state.currentCloud=!!keepId&&state.savedFlows.some(v=>v.id===keepId&&v.cloud);state.workflowGoal=string(r.workflowGoal,6000);state.initialFile=null;state.initialCloudArtifact=null;state.initialCloudMediaType=null;state.initial={format:FMT.includes(r.initialInput?.format)?r.initialInput.format:'text',text:string(r.initialInput?.text,100000),fileName:string(r.initialInput?.fileName,180),pdfMode:r.initialInput?.pdfMode==='vision_page'?'vision_page':'text',pdfPage:Number.isInteger(r.initialInput?.pdfPage)&&r.initialInput.pdfPage>=1&&r.initialInput.pdfPage<=100?r.initialInput.pdfPage:1};$('#workflowTitle').value=string(r.name,60)||'Imported workflow';setView('workflow');renderAll();requestAnimationFrame(fitView);toast('Workflow imported ♡');lastSavedSignature=null;savedLocation='new';updateDraftStatus()}
+state.nodes=nodes;state.edges=accepted;state.seq=Math.max(0,...nodes.map(n=>+n.id.match(/^b(\d+)$/)?.[1]||0));state.selected=null;state.selectedEdge=null;state.runStatus={};state.results={};state.lastRun=null;state.lastRunKind=null;state.flowId=keepId;state.currentCloud=!!keepId&&state.savedFlows.some(v=>v.id===keepId&&v.cloud);state.workflowGoal=string(r.workflowGoal,6000);state.initialFile=null;state.initialCloudArtifact=null;state.initialCloudMediaType=null;state.initial={format:FMT.includes(r.initialInput?.format)?r.initialInput.format:'text',text:string(r.initialInput?.text,100000),fileName:string(r.initialInput?.fileName,180),pdfMode:r.initialInput?.pdfMode==='vision_page'?'vision_page':'text',pdfPage:Number.isInteger(r.initialInput?.pdfPage)&&r.initialInput.pdfPage>=1&&r.initialInput.pdfPage<=100?r.initialInput.pdfPage:1};restoreLinkedPdfFromUrl();$('#workflowTitle').value=string(r.name,60)||'Imported workflow';setView('workflow');renderAll();requestAnimationFrame(fitView);toast('Workflow imported ♡');lastSavedSignature=null;savedLocation='new';updateDraftStatus()}
 function importBlockObject(obj){const r=obj?.kind==='mimo/block'?obj.block:obj?.block||obj;if(!r||typeof r!=='object'||Array.isArray(r)||!r.name||typeof r.name!=='string')throw Error('That file does not contain a reusable block.');const id=unique(),t=sanitizeBlock(r,id);state.custom[id]=t;refreshTypes();storage(customKey,state.custom);buildTemplates();renderBuilderSaved();toast('Block imported to your library ♡');return t}
 async function readJSON(file,handler){if(!file)return;if(file.size>3*1024*1024){toast('JSON must be under 3 MB.');return}try{const obj=JSON.parse(await file.text());handler(obj)}catch(e){toast('Could not import JSON: '+(e.message||'Invalid file'))}}
 function renderBuilderSaved(){$('#builderSavedList').innerHTML=Object.entries(state.custom).length?Object.entries(state.custom).map(([id,t])=>`<div class="saved-entry" data-block-id="${safe(id)}"><span class="template-icon" style="width:34px;height:34px">${icon(t.icon,16)}</span><span class="meta"><strong>${safe(t.name)}</strong><small>${t.execution==='condition'?t.branches.length+' branches · '+(t.conditionMode==='ai'?'AI':'rule'):t.execution==='tool'?'No AI · '+safe(TOOLS[t.toolKind]):safe(t.provider)+' · '+safe(t.model)}</small></span><button data-block-act="edit">Edit</button><button data-block-act="export">↓</button><button data-block-act="delete">×</button></div>`).join(''):'<div class="hint-empty">No custom blocks yet. Create your first little worker here.</div>'}
@@ -977,7 +1032,7 @@ $('#guideDownload').addEventListener('click',()=>downloadText(workflowDocumentat
 $('#guideDownloadJSON').addEventListener('click',()=>downloadJSON(workflowGuideJSON(),($('#workflowTitle').value||'workflow')+'.guide.json'));
 $('#guideCopy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(workflowDocumentation());toast('Workflow guide copied ♡')}catch{toast('Clipboard unavailable here. Use Download Markdown.')}});
 $('#guideReviewer').addEventListener('click',addReviewer);
-$('#workflowInputBtn').addEventListener('click',()=>openDialog('inputDialog'));$('#applyInitialInput').addEventListener('click',applyInput);$('#saveFlow').addEventListener('click',saveWorkflow);$('#exportFlow').addEventListener('click',()=>downloadJSON(workflowJSON(),($('#workflowTitle').value||'workflow')+'.workflow.json'));$('#importFlow').addEventListener('click',()=>$('#flowJsonFile').click());$('#modalImportFlow').addEventListener('click',()=>$('#flowJsonFile').click());$('#flowJsonFile').addEventListener('change',e=>{readJSON(e.target.files[0],o=>{applyWorkflow(o);closeDialog('flowsDialog')});e.target.value=''});$('#openFlows').addEventListener('click',()=>openDialog('flowsDialog'));$('#modalSaveFlow').addEventListener('click',()=>{saveWorkflow();closeDialog('flowsDialog')});$('#newWorkflow').addEventListener('click',newWorkflow);$('#savedFlowsList').addEventListener('click',async e=>{
+$('#initialFile').addEventListener('change',updatePdfInputOptions);$('#pdfMode').addEventListener('change',updatePdfInputOptions);$('#workflowInputBtn').addEventListener('click',()=>openDialog('inputDialog'));$('#applyInitialInput').addEventListener('click',applyInput);$('#saveFlow').addEventListener('click',saveWorkflow);$('#exportFlow').addEventListener('click',()=>downloadJSON(workflowJSON(),($('#workflowTitle').value||'workflow')+'.workflow.json'));$('#importFlow').addEventListener('click',()=>$('#flowJsonFile').click());$('#modalImportFlow').addEventListener('click',()=>$('#flowJsonFile').click());$('#flowJsonFile').addEventListener('change',e=>{readJSON(e.target.files[0],o=>{applyWorkflow(o);closeDialog('flowsDialog')});e.target.value=''});$('#openFlows').addEventListener('click',()=>openDialog('flowsDialog'));$('#modalSaveFlow').addEventListener('click',()=>{saveWorkflow();closeDialog('flowsDialog')});$('#newWorkflow').addEventListener('click',newWorkflow);$('#savedFlowsList').addEventListener('click',async e=>{
   const b=e.target.closest('[data-flow-act]');if(!b)return;
   const id=b.closest('[data-flow]').dataset.flow,v=state.savedFlows.find(x=>x.id===id);if(!v)return;
   const act=b.dataset.flowAct;
