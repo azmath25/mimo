@@ -176,6 +176,9 @@ body[data-page="studio"] .dismiss-run-message:hover{background:#f0f2f3;color:#25
   body[data-page="studio"] .top-actions > *{flex:none}
   body[data-page="studio"] #runButton{order:-2;min-height:40px}
   body[data-page="studio"] #saveFlow{order:-1;min-height:40px}
+  /* The off-canvas inspector is translated to the right while closed.
+     Clip only that mobile drawer area so it cannot double page width. */
+  body[data-page="studio"] .app{position:relative;overflow-x:clip}
   body[data-page="studio"] .app,
   body[data-page="studio"] .builder-page{height:calc(100dvh - 165px)}
   body[data-page="studio"] .sidebar,
