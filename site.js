@@ -29,6 +29,18 @@
   const signout=document.createElement("button");signout.id="cloudAccountBtn";signout.type="button";signout.hidden=true;signout.textContent="Sign out";
   user.append(status,signout);nav.append(brand,links,user);
   document.body.prepend(nav);
+  // Every page, including the canvas, has a main landmark. Give keyboard
+  // and screen-reader users a consistent escape from the wide page menu.
+  const main=document.querySelector("main");
+  if(main){
+    if(!main.id) main.id="mimo-main";
+    main.setAttribute("tabindex","-1");
+    const skip=document.createElement("a");
+    skip.href="#"+main.id;
+    skip.className="mimo-skip-link";
+    skip.textContent="Skip to main content";
+    document.body.prepend(skip);
+  }
   if(!document.getElementById("cloudGate")){
     const gate=document.createElement("div");gate.className="cloud-gate";gate.id="cloudGate";
     // Firebase restores its persisted user asynchronously. Keep the login hidden
