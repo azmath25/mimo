@@ -41,6 +41,19 @@ function configuredApiOrigin() {
     throw Error("Isolated staging Studio API is not yet approved. No API request was sent.");
   return API_ORIGIN;
 }
+function approvedApiPath(path, origin) {
+  // Origin + attacker-controlled "@host" or "//host" can change the URL's
+  // authority. Reject unsafe paths before fetching the Firebase ID token.
+  if (typeof path !== "string" || !path.startsWith("/") ||
+      path.startsWith("//") || path.includes("\\") ||
+      /[\x00-\x1f\x7f]/.test(path))
+    throw Error("Invalid authenticated Mimo API path.");
+  const resolved = new URL(path, origin);
+  if (resolved.origin !== origin ||
+      !(resolved.pathname.startsWith("/v1/") || resolved.pathname.startsWith("/health/")))
+    throw Error("Invalid authenticated Mimo API path.");
+  return path;
+}
 let verificationEpoch = 0;
 let signOutPending = false;
 const firebaseConfig = {
@@ -71,6 +84,7 @@ function status(text, active = false) {
 }
 async function request(path, options = {}) {
   const origin = configuredApiOrigin();
+  path = approvedApiPath(path, origin);
   const user = auth.currentUser;
   if (!user || signOutPending) throw Error("Sign in to Mimo first.");
   const token = await user.getIdToken();
@@ -126,6 +140,7 @@ async function uploadArtifact(file) {
 }
 async function requestBlob(path, options = {}) {
   const origin = configuredApiOrigin();
+  path = approvedApiPath(path, origin);
   const user = auth.currentUser;
   if (!user || signOutPending) throw Error("Sign in to Mimo first.");
   if (!path.startsWith("/v1/")) throw Error("Invalid authenticated download path.");
@@ -150,7 +165,9 @@ async function requestBlob(path, options = {}) {
   }
   return response.blob();
 }
-const cloud = { apiOrigin: API_ORIGIN, authorized: false, user: null, request, requestBlob, uploadArtifact, uploadFile };
+const cloud = { authorized: false, user: null, request, requestBlob, uploadArtifact, uploadFile };
+// UI code may read this target, but changing window state cannot redirect auth.
+Object.defineProperty(cloud, "apiOrigin", {value: API_ORIGIN, enumerable: true});
 window.MimoCloud = cloud;
 
 login.addEventListener("submit", async event => {
