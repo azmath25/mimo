@@ -46,7 +46,7 @@ function approvedApiPath(path, origin) {
   // authority. Reject unsafe paths before fetching the Firebase ID token.
   if (typeof path !== "string" || !path.startsWith("/") ||
       path.startsWith("//") || path.includes("\\") ||
-      /[\x00-\x1f\x7f]/.test(path))
+      /%(?:2f|5c)/i.test(path) || /[\x00-\x1f\x7f]/.test(path))
     throw Error("Invalid authenticated Mimo API path.");
   const resolved = new URL(path, origin);
   if (resolved.origin !== origin ||
