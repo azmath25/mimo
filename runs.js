@@ -3,29 +3,44 @@
 "use strict";
 const $=id=>document.getElementById(id),safe=v=>MimoSite.safe(v),api=(p,o)=>MimoSite.api(p,o);
 let runs=[],selected=null,offset=0,loading=false,busy=false;
+let listEpoch=0,selectionEpoch=0;
 const note=(text,error=false)=>MimoSite.notice("runsFeedback",text,error);
 function serialize(x){try{return JSON.stringify(x,null,2)}catch{return String(x)}}
 function details(row){return safe(row.workflow_id)+" · v"+safe(row.version)+" · "+safe(MimoSite.date(row.created_at))}
 function rowHtml(r){return '<article class="mg-row" data-run="'+safe(r.id)+'"><div class="mg-row-body"><strong>'+safe(r.workflow_id)+
  ' <span class="mg-pill">'+safe(r.status)+'</span></strong><small>'+details(r)+'</small><small>'+safe(r.id)+'</small></div><div class="mg-row-actions"><button class="mg-btn small" data-action="open">Inspect</button></div></article>'}
 async function list(reset=true){
- if(loading)return;loading=true;
- if(reset){runs=[];offset=0;}
+ // A new filter/refresh supersedes an older in-flight list request. Paging
+ // still refuses concurrent duplicate loads.
+ if(loading&&!reset)return;
+ if(reset){++listEpoch;runs=[];offset=0;}
+ const epoch=listEpoch;
+ loading=true;
+ $("loadMoreRuns").disabled=true;
  try{
   const q=new URLSearchParams({limit:"30",offset:String(offset)});
   if($("runWorkflowFilter").value.trim())q.set("workflow_id",$("runWorkflowFilter").value.trim());
   if($("runStatusFilter").value)q.set("status",$("runStatusFilter").value);
   const response=await api("/v1/runs?"+q);
+  if(epoch!==listEpoch)return;
   const batch=response.runs||[];runs.push(...batch);offset+=batch.length;
   $("runsList").innerHTML=runs.length?runs.map(rowHtml).join(""):'<div class="mg-empty">No runs found. Execute a workflow in Studio to create a persistent run.</div>';
   $("loadMoreRuns").disabled=batch.length<30;
- }catch(e){note("Cannot list runs: "+e.message,true)}
- finally{loading=false}
+ }catch(e){if(epoch===listEpoch)note("Cannot list runs: "+e.message,true)}
+ finally{if(epoch===listEpoch)loading=false}
 }
 async function choose(id){
+ if(!id)return;
  selected=id;
+ const epoch=++selectionEpoch;
+ // Never leave buttons for the previous run actionable while a new run loads.
+ $("runRefresh").disabled=true;
+ $("runResume").disabled=true;
+ $("runCancel").disabled=true;
+ note("Loading selected run…");
  try{
   const data=await api("/v1/runs/"+encodeURIComponent(id)+"/timeline");
+  if(epoch!==selectionEpoch||selected!==id)return;
   const r=data.run;
   $("runBadge").textContent=r.status;
   $("runMeta").textContent=r.id+" · "+details(r);
@@ -52,7 +67,7 @@ async function choose(id){
   $("eventList").innerHTML=events.length?events.map(e=>'<article class="mg-row"><div class="mg-row-body"><strong>#'+safe(e.seq)+' · '+safe(e.type)+'</strong><small>'+safe(MimoSite.date(e.created_at))+'</small><details><summary>Event metadata</summary><pre class="mg-pre">'+safe(serialize(e.payload))+'</pre></details></div></article>').join(""):'<div class="mg-empty">No events yet.</div>';
   history.replaceState(null,"","?run="+encodeURIComponent(id));
   note("Run loaded from persistent backend history.");
- }catch(e){note("Cannot inspect run: "+e.message,true)}
+ }catch(e){if(epoch===selectionEpoch&&selected===id)note("Cannot inspect run: "+e.message,true)}
 }
 async function action(command){
  if(!selected||busy)return;
