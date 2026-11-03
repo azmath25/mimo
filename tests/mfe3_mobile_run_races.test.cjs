@@ -123,7 +123,7 @@ function element(tag) {
 }
 test("M-FE.3 shared site shell adds a keyboard skip-to-main link",()=>{
   const main=element("main");
-  const body={children:[],prepend(node){this.children.unshift(node)}};
+  const body={dataset:{page:"overview"},children:[],prepend(node){this.children.unshift(node)}};
   const document={
     body,
     createElement:tag=>element(tag),
