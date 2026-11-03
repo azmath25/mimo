@@ -12,11 +12,11 @@ import {
  // origin by code review before any staging browser test. Change the active
  // environment only as part of a separately approved release.
 const ACTIVE_API_ENVIRONMENT = "staging";
-const VERIFIED_PRODUCTION_STUDIO_ORIGIN =
+const PREVIOUS_PRODUCTION_STUDIO_ORIGIN =
   "https://mimo-backend-git-993130348924.europe-west1.run.app";
 const APPROVED_STAGING_STUDIO_ORIGIN = "";
 const APPROVED_STUDIO_ORIGINS = Object.freeze({
-  production: VERIFIED_PRODUCTION_STUDIO_ORIGIN,
+  production: PREVIOUS_PRODUCTION_STUDIO_ORIGIN,
   staging: APPROVED_STAGING_STUDIO_ORIGIN
 });
 function approvedApiOrigin(environment) {
@@ -31,7 +31,7 @@ function approvedApiOrigin(environment) {
     !url.search && !url.hash && !url.port;
   const cloudRunHost = /^[a-z0-9][a-z0-9.-]*\.run\.app$/.test(url.hostname);
   if (!bare || !cloudRunHost) throw Error("Unapproved Mimo Studio API origin.");
-  if (environment === "staging" && candidate === VERIFIED_PRODUCTION_STUDIO_ORIGIN)
+  if (environment === "staging" && candidate === PREVIOUS_PRODUCTION_STUDIO_ORIGIN)
     throw Error("Staging must use a different, independently verified service.");
   return candidate;
 }
