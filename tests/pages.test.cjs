@@ -43,3 +43,17 @@ test("API projects never keep raw keys in local storage",()=>{
   assert.doesNotMatch(js,/localStorage\.setItem\([^\n]*api_key/);
   assert.match(js,/MIMO_API_ROLE=execution|execution service/i);
 });
+
+
+test("M-FE.2 API Access uses only the approved Studio origin rather than a duplicate URL",()=>{
+  const source=fs.readFileSync("access.js","utf8");
+  const auth=fs.readFileSync("cloud-auth.js","utf8");
+  assert.match(source,/const studioOrigin=window\.MimoCloud\?\.apiOrigin/);
+  assert.match(source,/if\(!studioOrigin\) return \{url:null,reason:/);
+  assert.doesNotMatch(source,/mimo-backend-git-[0-9]+\.[a-z0-9-]+\.run\.app/);
+  assert.match(auth,/const ACTIVE_API_ENVIRONMENT = "staging"/);
+  assert.match(auth,/const APPROVED_STAGING_STUDIO_ORIGIN = ""/);
+  assert.match(auth,/Object\.defineProperty\(cloud, "apiOrigin"/);
+  assert.doesNotMatch(auth,/localStorage\.getItem\([^)]*api/i);
+  assert.doesNotMatch(auth,/location\.(?:search|hash)/);
+});
