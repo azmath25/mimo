@@ -19,3 +19,18 @@ jobs:
           for script in cloud-auth.js cloud-bridge.js cloud-results.js site.js overview.js workflows.js models.js access.js budgets.js files.js runs.js tikz.js diagnostics.js; do node --check "$script"; done
       - name: Run adapter and studio smoke tests
         run: node --test tests/*.test.cjs
+
+      - name: Install isolated browser test dependency
+        run: npm install --no-save --no-package-lock --no-audit --no-fund playwright-core@1.56.1
+      - name: Local-only Chromium viewport and keyboard checks
+        run: |
+          command -v google-chrome || command -v chromium
+          node --test browser-tests/mfe4.browser.cjs
+      - name: Preserve synthetic browser screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mimo-local-browser-photos
+          path: test-artifacts/mfe4/
+          if-no-files-found: ignore
+          retention-days: 7
