@@ -134,6 +134,7 @@ test("arbitrary query, storage, and window targets cannot redirect bearer-token 
   app.scope.window.location={search:"?api=https://attacker.invalid",hash:"#api=https://attacker.invalid"};
   app.scope.window.localStorage={getItem:()=>"https://attacker.invalid"};
   app.scope.window.MimoCloud.apiOrigin="https://attacker.invalid";
+  assert.equal(app.scope.window.MimoCloud.apiOrigin,stagingOrigin,"origin is readonly");
   const user={uid:"admin",email:"admin@test.invalid",getIdToken:async()=>"fake"};
   app.auth.currentUser=user;
   await app.handlers.change(user);
@@ -247,4 +248,44 @@ test("Firebase account change during getIdToken never sends old token",async()=>
   await pending;
   assert.equal(app.requests.length,0);
   assert.equal(app.scope.window.MimoCloud.authorized,false);
+});
+
+
+test("malformed paths cannot transform approved origin into bearer-token exfiltration",async()=>{
+  const origin="https://mimo-approved-abc.a.run.app";
+  const app=boot({environment:"staging",stagingOrigin:origin});
+  let tokenCalls=0;
+  const user={uid:"admin",getIdToken:async()=>{tokenCalls++;return "fake-token"}};
+  app.auth.currentUser=user;
+  for(const path of [
+    "@attacker.example.invalid/v1/me",
+    "//attacker.example.invalid/v1/me",
+    "/\\attacker.example.invalid/v1/me",
+    "/%5cattacker.example.invalid/v1/me",
+    "https://attacker.example.invalid/v1/me",
+    "/other/path",
+    "/v1/ok\nInjected: yes",
+    "",
+    {},
+  ]){
+    await assert.rejects(app.scope.window.MimoCloud.request(path),/Invalid authenticated Mimo API path/);
+    await assert.rejects(app.scope.window.MimoCloud.requestBlob(path),/Invalid authenticated Mimo API path/);
+  }
+  assert.equal(app.requests.length,0,"No unapproved URL was fetched");
+  assert.equal(tokenCalls,0,"No Firebase ID token should be fetched for invalid paths");
+});
+
+test("only approved /v1 routes can make authenticated requests and binary downloads",async()=>{
+  const origin="https://mimo-approved-abc.a.run.app";
+  const app=boot({environment:"staging",stagingOrigin:origin});
+  const user={uid:"admin",getIdToken:async()=>"fake-token"};
+  app.auth.currentUser=user;
+  await app.scope.window.MimoCloud.request("/v1/me?detail=1");
+  app.setResponse(async()=>({ok:true,status:200,blob:async()=>({size:4})}));
+  await app.scope.window.MimoCloud.requestBlob("/v1/runs/123/artifacts/img");
+  assert.equal(app.requests.length,2);
+  assert.equal(app.requests[0][0],origin+"/v1/me?detail=1");
+  assert.equal(app.requests[1][0],origin+"/v1/runs/123/artifacts/img");
+  assert.equal(new Headers(app.requests[0][1].headers).get("Authorization"),"Bearer fake-token");
+  assert.equal(new Headers(app.requests[1][1].headers).get("Authorization"),"Bearer fake-token");
 });
