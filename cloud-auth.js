@@ -5,7 +5,44 @@ import {
   GoogleAuthProvider, signOut, setPersistence, browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 
-const API_ORIGIN = "https://mimo-backend-git-993130348924.europe-west1.run.app";
+// Code-reviewed targets ONLY. Never read Firebase token destinations from the URL,
+ // localStorage, window globals, user text fields, or a remote config response.
+ // This unreleased feature branch intentionally defaults to an unconfigured,
+ // fail-closed staging target. Add a verified isolated-staging service HTTPS
+ // origin by code review before any staging browser test. Change the active
+ // environment only as part of a separately approved release.
+const ACTIVE_API_ENVIRONMENT = "staging";
+const VERIFIED_PRODUCTION_STUDIO_ORIGIN =
+  "https://mimo-backend-git-993130348924.europe-west1.run.app";
+const APPROVED_STAGING_STUDIO_ORIGIN = "";
+const APPROVED_STUDIO_ORIGINS = Object.freeze({
+  production: VERIFIED_PRODUCTION_STUDIO_ORIGIN,
+  staging: APPROVED_STAGING_STUDIO_ORIGIN
+});
+function approvedApiOrigin(environment) {
+  if (!Object.prototype.hasOwnProperty.call(APPROVED_STUDIO_ORIGINS, environment))
+    throw Error("Unknown Mimo API environment.");
+  const candidate = APPROVED_STUDIO_ORIGINS[environment];
+  if (!candidate) return null; // Fail closed, before requesting any Firebase ID token.
+  // Only exact, bare Cloud Run HTTPS origins configured in reviewed source are accepted.
+  const url = new URL(candidate);
+  const bare = url.origin === candidate && url.protocol === "https:" &&
+    url.pathname === "/" && !url.username && !url.password &&
+    !url.search && !url.hash && !url.port;
+  const cloudRunHost = /^[a-z0-9][a-z0-9.-]*\.run\.app$/.test(url.hostname);
+  if (!bare || !cloudRunHost) throw Error("Unapproved Mimo Studio API origin.");
+  if (environment === "staging" && candidate === VERIFIED_PRODUCTION_STUDIO_ORIGIN)
+    throw Error("Staging must use a different, independently verified service.");
+  return candidate;
+}
+const API_ORIGIN = approvedApiOrigin(ACTIVE_API_ENVIRONMENT);
+function configuredApiOrigin() {
+  if (!API_ORIGIN)
+    throw Error("Isolated staging Studio API is not yet approved. No API request was sent.");
+  return API_ORIGIN;
+}
+let verificationEpoch = 0;
+let signOutPending = false;
 const firebaseConfig = {
   apiKey: "AIzaSyDZSdw39N55bBRDuDqYbQD7XKTyO1ArAkU",
   authDomain: "mimo-3fb0f.firebaseapp.com",
@@ -33,8 +70,12 @@ function status(text, active = false) {
   pill.classList.toggle("cloud-on", active);
 }
 async function request(path, options = {}) {
-  if (!auth.currentUser) throw Error("Sign in to Mimo first.");
-  const token = await auth.currentUser.getIdToken();
+  const origin = configuredApiOrigin();
+  const user = auth.currentUser;
+  if (!user || signOutPending) throw Error("Sign in to Mimo first.");
+  const token = await user.getIdToken();
+  if (auth.currentUser !== user || signOutPending)
+    throw Error("Account changed before the request could be sent.");
   const headers = new Headers(options.headers || {});
   headers.set("Authorization", "Bearer " + token);
   const multipart = typeof FormData !== 'undefined' && options.body instanceof FormData;
@@ -42,7 +83,7 @@ async function request(path, options = {}) {
   // Never set multipart Content-Type manually: the browser supplies its boundary.
   let response;
   try {
-    response = await fetch(API_ORIGIN + path, {
+    response = await fetch(origin + path, {
       ...options,
       headers,
       body: options.body === undefined ? undefined : multipart ? options.body : JSON.stringify(options.body)
@@ -84,14 +125,19 @@ async function uploadArtifact(file) {
   return request("/v1/artifacts", {method: "POST", body: form});
 }
 async function requestBlob(path, options = {}) {
-  if (!auth.currentUser) throw Error("Sign in to Mimo first.");
+  const origin = configuredApiOrigin();
+  const user = auth.currentUser;
+  if (!user || signOutPending) throw Error("Sign in to Mimo first.");
   if (!path.startsWith("/v1/")) throw Error("Invalid authenticated download path.");
+  const token = await user.getIdToken();
+  if (auth.currentUser !== user || signOutPending)
+    throw Error("Account changed before the download could be sent.");
   const headers = new Headers(options.headers || {});
-  headers.set("Authorization", "Bearer " + await auth.currentUser.getIdToken());
+  headers.set("Authorization", "Bearer " + token);
   if (options.body !== undefined) headers.set("Content-Type", "application/json");
   let response;
   try {
-    response = await fetch(API_ORIGIN + path, {
+    response = await fetch(origin + path, {
       method: options.method || "GET", headers,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
       cache:"no-store"
@@ -132,36 +178,52 @@ googleButton.addEventListener("click", async () => {
   } finally { googleButton.disabled = false; }
 });
 async function leave() {
+  // Invalidate in-flight /v1/me callbacks immediately, before signOut awaits.
+  ++verificationEpoch;
+  signOutPending = true;
   cloud.authorized = false;
   cloud.user = null;
   gate.hidden = false;
   account.hidden = true;
-  status("Sign in required");
-  await signOut(auth);
+  status("Signing out…");
   window.dispatchEvent(new Event("mimo:auth-changed"));
+  try {
+    await signOut(auth);
+  } catch (error) {
+    // Keep UI locked even when Firebase sign-out could not be confirmed.
+    gate.hidden = false;
+    status("Sign-out could not be confirmed");
+    announce("Sign out failed: " + error.message, true);
+  }
 }
 account.addEventListener("click", leave);
 switchAccount.addEventListener("click", leave);
 
 onAuthStateChanged(auth, async user => {
+  const epoch = ++verificationEpoch;
   cloud.authorized = false;
   cloud.user = null;
   account.hidden = true;
-  // Do not show the sign-in dialog during Firebase's session restoration.
-  // A new document is loaded on each page navigation and the persisted
-  // Firebase user is verified asynchronously against the backend.
+  // Firebase restores its session asynchronously. Do not flash the dialog
+  // while checking a new user's backend admin role.
+  if (user && !signOutPending) gate.hidden = true;
   status("Checking account…");
   window.dispatchEvent(new Event("mimo:auth-changed"));
   if (!user) {
+    signOutPending = false;
     gate.hidden = false;
     switchAccount.hidden = true;
     announce("Sign in with the Firebase account whose UID you added to MIMO_ADMIN_UIDS.");
     status("Sign in required");
     return;
   }
+  if (signOutPending) return;
+  const stillCurrent = () =>
+    verificationEpoch === epoch && !signOutPending && auth.currentUser === user;
   announce("Verifying administrator permissions…");
   try {
     const principal = await request("/v1/me");
+    if (!stillCurrent()) return;
     if (principal.role !== "admin") throw Error("Administrator role is required.");
     cloud.authorized = true;
     cloud.user = {uid:user.uid, email:user.email, role:principal.role};
@@ -171,6 +233,7 @@ onAuthStateChanged(auth, async user => {
     status("Cloud connected", true);
     window.dispatchEvent(new Event("mimo:auth-changed"));
   } catch(error) {
+    if (!stillCurrent()) return;
     gate.hidden = false;
     status("Access not granted");
     announce("Signed in to Firebase, but backend access failed: " + error.message +
@@ -178,8 +241,12 @@ onAuthStateChanged(auth, async user => {
     switchAccount.hidden = false;
   }
 }, error => {
+  ++verificationEpoch;
+  cloud.authorized = false;
+  cloud.user = null;
   gate.hidden = false;
   account.hidden = true;
   status("Authentication error");
   announce(error.message, true);
+  window.dispatchEvent(new Event("mimo:auth-changed"));
 });
