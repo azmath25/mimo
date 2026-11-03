@@ -156,6 +156,29 @@ for(const width of [320,360,390,1280]){
     } finally {await close(app)}
   });
 }
+test("local Chromium: mobile Studio inspector still opens and closes inside viewport",async()=>{
+  const app=await fixture("studio.html",390,800);
+  try{
+    const p=app.page;
+    const inspector=p.locator("#inspector");
+    const toggle=p.locator("#toggleInspector");
+    assert.equal(await toggle.getAttribute("aria-expanded"),"false");
+    await toggle.click();
+    await p.waitForFunction(()=>document.querySelector("#inspector").classList.contains("open"));
+    const b=await inspector.boundingBox();
+    assert.ok(b&&b.x>=0&&b.x+b.width<=391,
+      "Open inspector must fit viewport without horizontal page scroll");
+    assert.equal(await toggle.getAttribute("aria-expanded"),"true");
+    assert.ok((await p.locator("#inspector .inspector-tabs").count())>0);
+    await p.screenshot({path:path.join(output,"studio-mobile-inspector-open.png")});
+    await toggle.click();
+    await p.waitForFunction(()=>!document.querySelector("#inspector").classList.contains("open"));
+    assert.equal(await toggle.getAttribute("aria-expanded"),"false");
+    const scroll=await p.evaluate(()=>document.documentElement.scrollWidth);
+    assert.ok(scroll<=391, "Closed inspector must not extend document");
+    assert.equal(app.blocked.some(x=>x.endsWith(".run.app")),false);
+  }finally{await close(app)}
+});
 test("local Chromium: Runs errors remain visible to assistive technology",async()=>{
   const app=await fixture("runs.html",390);
   try {
