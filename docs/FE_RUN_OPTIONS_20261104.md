@@ -27,10 +27,13 @@ existing Run in cloud handler.
 
 ## Availability and security
 
-Background and parallel options remain disabled unless the **Studio**
-capabilities endpoint explicitly returns `run_api.background_configured
-=== true`. Parallel additionally requires `run_api.parallel_nodes
-=== true`.
+Background can be selected only when the **Studio** capabilities
+endpoint explicitly returns `run_api.background_configured === true`.
+**Parallel can always be selected and saved as a workflow design mode.**
+However, starting such a workflow through Cloud Run is blocked by the
+existing readiness guard until `run_api.background_configured === true`
+and `run_api.parallel_nodes === true`. This avoids making workflow
+design hostage to current infrastructure without bypassing server safety.
 
 This patch does NOT enable Cloud Tasks, change IAM, change backend
 configuration, create provider calls, or bypass the existing Check
@@ -48,7 +51,8 @@ tokens remain protected.
 - Node tests: mode mapping, no implicit capability enablement, frozen
   Studio editor guard and non-destructive export behavior.
 - Local Playwright: desktop Run options accessibility,
-  fail-closed behavior without Cloud Tasks, choosing all three modes
+  fail-closed Cloud Run behavior without Cloud Tasks, designing parallel
+  before backend enablement, choosing all three modes
   when a synthetic **local** capability response is enabled, and no
   remote API calls. Existing unrelated mobile viewport regression tests
   remain unchanged, but M-FE.6 does not optimize new features for phones.
