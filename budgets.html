@@ -1,5 +1,5 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Mimo — Budgets & usage</title><link rel="stylesheet" href="./site.css"></head>
+<title>Mimo — Budgets & usage</title><link rel="stylesheet" href="./site.css"><link rel="stylesheet" href="./usage-capacity.css"></head>
 <body data-page="budgets" style="margin:0"><main class="mg-page"><div class="mg-wrap">
 <section class="mg-hero"><div><span class="mg-eyebrow">Control / Observe</span><h1>Budgets & usage</h1><p>Track recorded provider spend, inspect model token usage and set spending limits before you run multi-step AI workflows.</p></div>
 <button class="mg-btn" id="refreshBudgets">↻ Refresh usage</button></section>
@@ -9,6 +9,37 @@
   <div class="mg-card"><span class="mg-stat">Active spending policies</span><div class="mg-metric" id="totalPolicies">—</div><div class="mg-metric-label">Global, model and project-level thresholds</div></div>
 </div>
 <div class="mg-alert warn"><strong>Provider cost controls use estimated spending reservations.</strong> They prevent concurrent calls from claiming the same available budget, but provider bills may exceed estimates. Network failures can retain an unresolved hold until reviewed. All displayed model costs are cumulative and exclude cloud infrastructure. Maintain correct USD prices in <a href="./models.html">AI models</a>.</div>
+<section class="uc-shell" aria-labelledby="uc-title">
+  <div class="uc-topline">
+    <div><div class="uc-kicker">Read-only · Live telemetry</div>
+      <h2 class="uc-title" id="uc-title">Usage &amp; capacity</h2>
+      <p class="uc-explainer">See what is running, where the model traffic goes, and how much of each configured requests-per-minute limit is being used. Unconfigured external quotas are shown as unknown.</p>
+    </div>
+    <div class="uc-tools"><span class="uc-stamp" id="uc-stamp" role="status" aria-live="polite">Awaiting cloud session</span>
+      <button type="button" class="uc-refresh" id="uc-refresh">Refresh now</button></div>
+  </div>
+  <div class="uc-stats">
+    <div class="uc-stat"><div class="uc-stat-name">Running parallel nodes</div><div class="uc-stat-value" id="uc-active-nodes">—</div><div class="uc-stat-detail">Durable Worker task status</div></div>
+    <div class="uc-stat"><div class="uc-stat-name">Queued parallel nodes</div><div class="uc-stat-value" id="uc-queued-nodes">—</div><div class="uc-stat-detail">Awaiting capacity or dependencies</div></div>
+    <div class="uc-stat"><div class="uc-stat-name">Active parallel runs</div><div class="uc-stat-value" id="uc-active-runs">—</div><div class="uc-stat-detail">Workflow executions</div></div>
+    <div class="uc-stat"><div class="uc-stat-name">Configured RPM limits</div><div class="uc-stat-value" id="uc-rpm-connections">—</div><div class="uc-stat-detail" id="uc-rpm-desc">Loading connection policies</div></div>
+  </div>
+  <div class="uc-live-grid">
+    <div class="uc-panel"><h3>Current workload</h3><p class="uc-subtext">Running vs. queued tasks. This is a processing share, not a percent of cloud capacity.</p>
+      <div class="uc-ring-wrap"><div class="uc-ring" id="uc-ring" role="img" aria-label="Current workload loading"><div class="uc-ring-inside"><strong class="uc-ring-percent" id="uc-ring-percent">—</strong><span class="uc-ring-caption" id="uc-ring-caption">loading</span></div></div>
+      <div class="uc-status-key"><div class="uc-key-item"><span class="uc-dot"></span><b id="uc-running-key">—</b></div><div class="uc-key-item"><span class="uc-dot wait"></span><b id="uc-queued-key">—</b></div></div></div>
+      <p class="uc-subtext" id="uc-run-caption" style="margin:12px 0 0">Loading durable parallel tasks…</p>
+    </div>
+    <div class="uc-panel"><h3>Model traffic distribution</h3><p class="uc-subtext" id="uc-call-caption">Lifetime share of completed AI calls, not real-time capacity.</p>
+      <div class="uc-chart-list" id="uc-call-chart"><p class="uc-empty">Loading recorded usage…</p></div>
+    </div>
+  </div>
+  <div class="uc-divider"></div>
+  <div class="uc-model-section-head"><h3>Model-by-model capacity</h3><a class="uc-mini-link" href="./models.html">Configure model limits</a></div>
+  <p class="uc-subtext">RPM usage is measured across each provider endpoint + remote model + credential reference. Model aliases may share a single quota. Percentages are snapshots, refreshed every 30 seconds while visible.</p>
+  <div class="uc-model-grid" id="uc-model-grid"><p class="uc-empty">Loading models and RPM telemetry…</p></div>
+  <div class="uc-state" id="uc-state" role="status" aria-live="polite">Connecting to the authorized Studio service…</div>
+</section>
 <div class="mg-section"><h2>Spending policies</h2></div>
 <div id="policyList" class="mg-list"><div class="mg-empty">Loading policies…</div></div>
 <div class="mg-section"><h2>Create or update a spending policy</h2></div>
@@ -49,4 +80,4 @@
 <div id="reconciliationAudit" class="mg-list"><div class="mg-empty">Loading reconciliation history…</div></div>
 <div class="mg-section"><h2>Recent provider requests</h2><span class="mg-hint">Up to 30 recorded calls</span></div>
 <div class="mg-card" style="overflow-x:auto"><table class="mg-table"><thead><tr><th>Model</th><th>Input tokens</th><th>Output tokens</th><th>Cost</th></tr></thead><tbody id="usageCalls"><tr><td colspan="4">Loading…</td></tr></tbody></table></div>
-</div></main><script src="./site.js"></script><script src="./budgets.js"></script><script type="module" src="./cloud-auth.js"></script></body></html>
+</div></main><script src="./site.js"></script><script src="./usage-capacity-math.js"></script><script src="./usage-capacity.js"></script><script src="./budgets.js"></script><script type="module" src="./cloud-auth.js"></script></body></html>
