@@ -17,6 +17,17 @@
 <div class="mg-section"><h2>LaTeX source</h2><button type="button" class="mg-btn small" id="resetTikz">Example</button></div>
 <label class="mg-hint" for="tikzFormat">Output format</label>
 <select id="tikzFormat" class="mg-btn" style="margin:8px 0 15px;width:100%"><option value="pdf">PDF document</option><option value="png">PNG image (rendered from PDF)</option></select>
+<div id="tikzDpiRow" class="mg-field" hidden style="margin-bottom:15px">
+<label class="mg-hint" for="tikzDpi">PNG resolution (DPI)</label>
+<select id="tikzDpi" class="mg-btn" style="display:block;margin:8px 0;width:100%">
+<option value="160">160 DPI · Smaller file (legacy)</option>
+<option value="240">240 DPI · Balanced</option>
+<option value="300" selected>300 DPI · Recommended</option>
+<option value="450">450 DPI · High detail</option>
+<option value="600">600 DPI · Print quality</option>
+</select>
+<p class="mg-hint">Higher DPI produces sharper raster images but uses more memory and storage. PDF stays resolution independent. PNG output is limited to 16 megapixels and 8 MB.</p>
+</div>
 <label class="mg-hint" for="tikzSource">Complete LaTeX document, including the preamble</label>
 <textarea id="tikzSource" class="tikz-editor" spellcheck="false" aria-label="LaTeX TikZ source">\documentclass[tikz,border=5pt]{standalone}
 \begin{document}

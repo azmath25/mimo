@@ -16,10 +16,10 @@ const text=rel=>read(rel).toString("utf8");
 const blobSha=data=>createHash("sha1")
  .update(Buffer.from("blob "+data.length+"\0")).update(data).digest("hex");
 
-test("M-FE.5: main Studio HTML and inlined workflow logic are byte-identical to audited design",()=>{
+test("M-FE.5: Studio layout unchanged except user-approved TikZ DPI controls",()=>{
   assert.equal(blobSha(read("studio.html")),
-    "6da37438bcd5dcc5d2446de5b916693bc1169cc4",
-    "No redesign of Studio canvas, main blocks, connections, editor or controls was authorized");
+    "6aec282df64c2929b1535a7baa3e3aeaa684223b",
+    "Only the user-approved TikZ PNG DPI inspector and template controls may alter the frozen Studio file");
 });
 
 test("M-FE.5: unchanged Desktop Studio has the same major canvas and controls",()=>{
