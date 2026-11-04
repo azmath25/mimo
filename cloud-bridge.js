@@ -55,6 +55,10 @@
       }
       if (type === "ai") {
         config.model_id = resolveModel(n, models);
+        // Explicitly configured fallback is considered only when the selected
+        // primary model is unavailable before any billable provider request.
+        config.fallback_model_ids = String(n.fallbackModels||"")
+          .split(",").map(x=>x.trim()).filter(Boolean).slice(0,5);
         config.prompt = (n.includeWorkflowGuide ? guideFor(flow,n)+"\nASSIGNED TASK:\n" : "") + mapPrompt(n.prompt);
         // Each AI node controls its own completion budget; reasoning tokens count.
         // Existing workflows without the setting retain the previous 1024 cap.
@@ -115,6 +119,7 @@
       execution: ["tool","compiler","connector"].includes(n.type) ? "tool" : n.type === "condition" ? "condition" : "ai",
       prompt: n.config?.prompt || "", model: n.config?.model_id || "",
       maxTokens: n.config?.max_tokens || 1024,
+      fallbackModels: asArray(n.config?.fallback_model_ids).join(", "),
       toolKind: n.type==="compiler" ? "tikz" : n.type==="connector" ? "github-issue" : n.config?.tool === "upper" ? "uppercase" : n.config?.tool === "lower" ? "lowercase" : n.config?.tool || "trim",
       compilerTarget:n.config?.target||"pdf",
       compilerDpi:n.config?.dpi??160,
