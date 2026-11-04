@@ -36,10 +36,11 @@ test("M-FE.5: unchanged Desktop Studio has the same major canvas and controls",(
   assert.match(css,/\.app\s*\{position:relative;overflow-x:clip\}/);
 });
 
-test("M-FE.5: authenticated frontend API remains a reviewed staging-only destination",()=>{
+test("M-FE.5: frontend release uses reviewed production target without weakening URL guards",()=>{
   const auth=text("cloud-auth.js"),access=text("access.js");
-  assert.match(auth,/const ACTIVE_API_ENVIRONMENT = "staging"/);
+  assert.match(auth,/const ACTIVE_API_ENVIRONMENT = "production"/);
   assert.match(auth,/const APPROVED_STAGING_STUDIO_ORIGIN = ""/);
+  assert.match(auth,/const APPROVED_PRODUCTION_STUDIO_ORIGIN = "https:\/\/mimo-backend-git-hhe6zssqxa-ew\.a\.run\.app"/);
   assert.match(auth,/const API_ORIGIN = approvedApiOrigin\(ACTIVE_API_ENVIRONMENT\)/);
   assert.match(auth,/path = approvedApiPath\(path, origin\)/);
   assert.match(access,/const studioOrigin=window\.MimoCloud\?\.apiOrigin/);
