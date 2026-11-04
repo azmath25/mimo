@@ -23,27 +23,27 @@ function environment() {
   const api = async (url, opts) => {
     records.push({url, opts});
     if (url === "/v1/models") return models;
-    if (url === "/v1/models/rate-limits") return {policies, enforced: false};
+    if (url === "/v1/models/rate-limits") return {policies, enforced: true};
     if (url.endsWith("/rate-limit") && opts?.method === "PUT") {
       const rpm = opts.body.max_requests_per_minute;
       policies = [{
         identity_key: "a".repeat(64), provider: "openai_compatible",
         remote_model_id: "qwen-remote", endpoint: "https://api.example/v1",
         secret_ref: "provider_ref", model_ids: ["alias_a", "alias_b"],
-        max_requests_per_minute: rpm, enforced: false,
+        max_requests_per_minute: rpm, enforced: true,
       }];
-      return {max_requests_per_minute: rpm, model_ids: ["alias_a", "alias_b"], enforced: false};
+      return {max_requests_per_minute: rpm, model_ids: ["alias_a", "alias_b"], enforced: true};
     }
     if (url.endsWith("/rate-limit") && opts?.method === "DELETE") {
       policies = [];
-      return {deleted: true, enforced: false};
+      return {deleted: true, enforced: true};
     }
     if (url.includes("/rate-limit") && !opts) {
       return {
         model_ids: ["alias_a", "alias_b"], secret_ref: "provider_ref",
         configured: policies.length > 0,
         max_requests_per_minute: policies[0]?.max_requests_per_minute ?? null,
-        enforced: false,
+        enforced: true,
       };
     }
     if (url.includes("/rate-limits/") && opts?.method === "DELETE") {
@@ -66,12 +66,12 @@ function environment() {
   return {element, records, notices, ready: () => ready()};
 }
 
-test("Models page explicitly warns RPM configuration is not yet enforced", () => {
+test("Models page explains backend RPM enforcement and uncapped risk", () => {
   const html = fs.readFileSync("models.html", "utf8");
   assert.match(html, /rpmPolicyForm/);
   assert.match(html, /rpm-config\.js/);
-  assert.match(html, /Configuration only — M-RPM\.1/);
-  assert.match(html, /not enforced/);
+  assert.match(html, /Production RPM protection \(M-RPM\.2–4\)/);
+  assert.match(html, /No policy means no per-model RPM cap/);
 });
 
 test("policy controller saves shared RPM and refreshes effective identity", async () => {
@@ -85,7 +85,8 @@ test("policy controller saves shared RPM and refreshes effective identity", asyn
     && x.opts?.method === "PUT" && x.opts?.body?.max_requests_per_minute === 42));
   assert.match(env.element("rpmPolicyList").innerHTML, /42 RPM/);
   assert.match(env.element("rpmPolicyList").innerHTML, /alias_a, alias_b/);
-  assert.match(env.element("rpmPolicyList").innerHTML, /Not enforced/);
+  assert.match(env.element("rpmPolicyList").innerHTML, /Enforced/);
+  assert.doesNotMatch(env.element("rpmPolicyList").innerHTML, /Not enforced/);
 });
 
 test("controller rejects invalid RPM before making policy write", async () => {
