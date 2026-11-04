@@ -59,7 +59,21 @@ test("TikZ Lab labels and previews follow PDF/PNG selection",async()=>{
   let readyCallback;
   let downloadedFile="";
   let revoked=0;
-  let lastRequest=null;
+  let lastRequest=null, forcedDpi=null;
+  function pngAt(dpi){
+    const signature=Buffer.from([137,80,78,71,13,10,26,10]);
+    const chunk=(name,bytes)=>{
+      const out=Buffer.alloc(12+bytes.length);
+      out.writeUInt32BE(bytes.length,0);out.write(name,4,"ascii");
+      bytes.copy(out,8);return out;
+    };
+    const ihdr=Buffer.alloc(13);ihdr.writeUInt32BE(213,0);ihdr.writeUInt32BE(213,4);
+    ihdr[8]=8;ihdr[9]=2;
+    const phys=Buffer.alloc(9),meters=Math.round(dpi/0.0254);
+    phys.writeUInt32BE(meters,0);phys.writeUInt32BE(meters,4);phys[8]=1;
+    return new Blob([Buffer.concat([signature,chunk("IHDR",ihdr),
+      chunk("pHYs",phys),chunk("IDAT",Buffer.alloc(0))])],{type:"image/png"});
+  }
   function element(id){
     if(!elements.has(id)){
       elements.set(id,{
@@ -90,7 +104,9 @@ test("TikZ Lab labels and previews follow PDF/PNG selection",async()=>{
     authorized:true,
     async requestBlob(path,opts){
       lastRequest={path,opts};
-      return {type:path.endsWith("/png")?"image/png":"application/pdf"};
+      return path.endsWith("/png")?
+        pngAt(forcedDpi==null?opts.body.dpi:forcedDpi):
+        new Blob([Buffer.from("%PDF-1.4")],{type:"application/pdf"});
     }
   };
   const MimoSite={
@@ -102,7 +118,7 @@ test("TikZ Lab labels and previews follow PDF/PNG selection",async()=>{
     revokeObjectURL:()=>{revoked++}
   };
   vm.runInNewContext(fs.readFileSync("tikz.js","utf8"),{
-    document,window:{MimoCloud:cloud,addEventListener(){}},
+    document,window:{MimoCloud:cloud,MimoPngResolution:require("../tikz-png-verify.js"),addEventListener(){}},
     MimoCloud:cloud,MimoSite,URL
   });
 
@@ -132,6 +148,12 @@ test("TikZ Lab labels and previews follow PDF/PNG selection",async()=>{
   assert.equal(element("tikzImagePreview").hidden,false);
   element("downloadTikz").handlers.click();
   assert.equal(downloadedFile,"mimo-tikz.png");
+  element("tikzChoicePng300").handlers.click();
+  forcedDpi=160;
+  await element("compileTikz").handlers.click();
+  assert.match(element("tikzStatus").textContent,/Requested 300 DPI, but compiler returned 160 DPI/);
+  assert.equal(element("downloadTikz").disabled,true);
+  forcedDpi=null;
 
   element("tikzChoicePdf").handlers.click();
   assert.equal(element("tikzChoicePdf").attributes["aria-pressed"],"true");
