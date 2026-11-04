@@ -152,3 +152,39 @@ body[data-page="studio"] .dismiss-run-message:hover{background:#f0f2f3;color:#25
 @media(prefers-reduced-motion:reduce){
   body[data-page="studio"] .inspector{transition:none}
 }
+
+/* M-FE.3 small-screen header: actions remain scrollable, with Run/Save first.
+   Header height and canvas height match exactly (53px shared nav + 112px header).
+   Browser viewport/real touch testing remains a later staging release gate. */
+@media (max-width:640px){
+  body[data-page="studio"] .topbar{
+    height:112px;min-height:112px;
+    flex-wrap:wrap;align-content:center;row-gap:5px;
+    padding:6px 8px;
+  }
+  body[data-page="studio"] #toggleLibrary{
+    order:0;min-width:40px;min-height:40px;
+  }
+  body[data-page="studio"] .top-center{order:1;flex:1 1 0;min-width:0}
+  body[data-page="studio"] .top-actions{
+    order:2;flex:1 1 100%;width:100%;min-width:0;
+    justify-content:flex-start;flex-wrap:nowrap;
+    overflow-x:auto;overflow-y:hidden;
+    scrollbar-width:thin;overscroll-behavior-x:contain;
+    -webkit-overflow-scrolling:touch;padding-bottom:2px;
+  }
+  body[data-page="studio"] .top-actions > *{flex:none}
+  body[data-page="studio"] #runButton{order:-2;min-height:40px}
+  body[data-page="studio"] #saveFlow{order:-1;min-height:40px}
+  /* The off-canvas inspector is translated to the right while closed.
+     Clip only that mobile drawer area so it cannot double page width. */
+  body[data-page="studio"] .app{position:relative;overflow-x:clip}
+  body[data-page="studio"] .app,
+  body[data-page="studio"] .builder-page{height:calc(100dvh - 165px)}
+  body[data-page="studio"] .sidebar,
+  body[data-page="studio"] .inspector{top:0}
+  body[data-page="studio"] #cloudRunMessage{bottom:14px}
+  body[data-page="studio"] .top-actions :is(button,summary):focus-visible{
+    outline:3px solid #205981;outline-offset:-2px
+  }
+}

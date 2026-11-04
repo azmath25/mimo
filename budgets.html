@@ -6,25 +6,47 @@
 <div class="mg-grid">
   <div class="mg-card"><span class="mg-stat">Total recorded spend</span><div class="mg-metric" id="totalSpend">—</div><div class="mg-metric-label">Lifetime USD across recorded calls</div></div>
   <div class="mg-card"><span class="mg-stat">AI calls</span><div class="mg-metric" id="totalCalls">—</div><div class="mg-metric-label">Recorded model invocations</div></div>
-  <div class="mg-card"><span class="mg-stat">Active spending policies</span><div class="mg-metric" id="totalPolicies">—</div><div class="mg-metric-label">Global and model-specific thresholds</div></div>
+  <div class="mg-card"><span class="mg-stat">Active spending policies</span><div class="mg-metric" id="totalPolicies">—</div><div class="mg-metric-label">Global, model and project-level thresholds</div></div>
 </div>
-<div class="mg-alert warn"><strong>Limits are checked before each model call.</strong> A single call can exceed the remaining amount; limits are not a guaranteed exact billing cap. Totals are cumulative, not monthly. For accurate estimates, register provider-specific token pricing in <a href="./models.html">AI models</a>.</div>
+<div class="mg-alert warn"><strong>Provider cost controls use estimated spending reservations.</strong> They prevent concurrent calls from claiming the same available budget, but provider bills may exceed estimates. Network failures can retain an unresolved hold until reviewed. All displayed model costs are cumulative and exclude cloud infrastructure. Maintain correct USD prices in <a href="./models.html">AI models</a>.</div>
 <div class="mg-section"><h2>Spending policies</h2></div>
 <div id="policyList" class="mg-list"><div class="mg-empty">Loading policies…</div></div>
 <div class="mg-section"><h2>Create or update a spending policy</h2></div>
 <div class="mg-card"><form id="budgetForm">
   <div class="mg-fields">
-    <div class="mg-field"><label for="budgetScope">Applies to</label><select id="budgetScope"><option value="global">All models (global)</option><option value="model">One registered model</option></select></div>
-    <div class="mg-field" id="budgetModelWrap" hidden><label for="budgetModel">Model ID</label><select id="budgetModel"></select></div>
-    <div class="mg-field"><label for="budgetHard">Hard threshold (USD)</label><input id="budgetHard" required type="number" min="0.01" step="0.01" placeholder="10.00"></div>
+    <div class="mg-field"><label for="budgetScope">Applies to</label><select id="budgetScope"><option value="global">All models (global)</option><option value="model">One registered model</option><option value="project">One external API project</option></select></div>
+    <div class="mg-field" id="budgetModelWrap" hidden><label for="budgetModel">Model ID</label><select id="budgetModel"></select></div><div class="mg-field" id="budgetProjectWrap" hidden><label for="budgetProject">API project</label><select id="budgetProject"></select></div>
+    <div class="mg-field"><label for="budgetHard">Hard threshold (USD)</label><input id="budgetHard" required type="number" min="0" step="0.01" placeholder="10.00"></div>
     <div class="mg-field"><label for="budgetSoft">Warning threshold (USD)</label><input id="budgetSoft" required type="number" min="0" step="0.01" value="0"></div>
   </div>
   <div class="mg-actions"><button class="mg-btn primary" type="submit" id="saveBudget">Save policy</button></div>
-  <p class="mg-hint">Saving the same scope and model ID updates the existing policy. A soft limit is informational in the current backend; a hard limit blocks subsequent calls after the recorded spend reaches the threshold.</p>
+  <p class="mg-hint">Saving the same scope and model ID updates the existing policy. A hard limit of $0 pauses new calls. Soft limits are informational; active estimated reservations also count toward admission.</p>
   <div class="mg-feedback" id="budgetFeedback" role="status" aria-live="polite"></div>
 </form></div>
 <div class="mg-section"><h2>Usage by model</h2></div>
 <div id="usageByModel" class="mg-grid two"><div class="mg-empty">Loading model usage…</div></div>
+<div class="mg-section"><h2>Usage by external project</h2></div><div id="usageByProject" class="mg-grid two"><div class="mg-empty">Loading project attribution…</div></div>
+<div class="mg-section"><h2>Outstanding provider reservations</h2><span class="mg-hint" id="reservationSummary">Checking…</span></div>
+<div class="mg-list" id="budgetReservations" role="status" aria-live="polite"><div class="mg-empty">Loading reservations…</div></div>
+<div class="mg-alert warn" style="margin-top:12px">A reservation marked uncertain may represent a billable provider request whose response was lost. Do not assume that an unresolved hold is free money.</div>
+<div class="mg-section"><h2>Reconcile an uncertain charge</h2><span class="mg-hint">Administrator verification required</span></div>
+<div class="mg-card">
+  <form id="reconcileBudgetForm">
+    <p class="mg-hint">Check the provider's real billing records before changing a hold. The action is permanently audited and may change available spending allowance. Pending holds less than one hour old cannot be resolved.</p>
+    <div class="mg-fields">
+      <div class="mg-field"><label for="reservationId">Unresolved reservation</label><select id="reservationId" required></select></div>
+      <div class="mg-field"><label for="reconcileDecision">Verified outcome</label><select id="reconcileDecision"><option value="not_billed">Confirmed not billed</option><option value="billed">Confirmed billed</option></select></div>
+      <div class="mg-field span"><label for="reconcileEvidence">Provider invoice or evidence reference</label><input id="reconcileEvidence" required minlength="8" maxlength="500" placeholder="invoice-2026-11-..." autocomplete="off"></div>
+      <div class="mg-field span"><label for="reconcileReason">Explanation of verification</label><textarea id="reconcileReason" required minlength="20" maxlength="2000" rows="3" placeholder="I verified the provider invoice and determined..."></textarea></div>
+      <div class="mg-field"><label for="reconcileProviderRequest">Provider request ID (billed only)</label><input id="reconcileProviderRequest" maxlength="128" autocomplete="off"></div>
+      <div class="mg-field"><label for="reconcileActualUsd">Actual provider charge, USD (billed only)</label><input id="reconcileActualUsd" type="number" min="0" step="0.000001" value="0"></div>
+    </div>
+    <div class="mg-actions"><button id="submitBudgetReconciliation" class="mg-btn primary" type="submit">Record verified decision</button></div>
+    <div class="mg-feedback" id="budgetReconcileFeedback" role="status" aria-live="polite"></div>
+  </form>
+</div>
+<div class="mg-section"><h2>Recent charge reconciliations</h2></div>
+<div id="reconciliationAudit" class="mg-list"><div class="mg-empty">Loading reconciliation history…</div></div>
 <div class="mg-section"><h2>Recent provider requests</h2><span class="mg-hint">Up to 30 recorded calls</span></div>
 <div class="mg-card" style="overflow-x:auto"><table class="mg-table"><thead><tr><th>Model</th><th>Input tokens</th><th>Output tokens</th><th>Cost</th></tr></thead><tbody id="usageCalls"><tr><td colspan="4">Loading…</td></tr></tbody></table></div>
 </div></main><script src="./site.js"></script><script src="./budgets.js"></script><script type="module" src="./cloud-auth.js"></script></body></html>

@@ -9,6 +9,7 @@ const pages={
  "studio.html":"studio",
  "models.html":"models",
  "access.html":"access",
+ "connectors.html":"connectors",
  "budgets.html":"budgets"
 };
 
@@ -23,7 +24,7 @@ test("every management page links the shared shell and Firebase login",()=>{
   }
 });
 test("each page controller passes JavaScript syntax parsing",()=>{
-  for(const file of ["overview.js","workflows.js","models.js","access.js","budgets.js","site.js"]){
+  for(const file of ["overview.js","workflows.js","models.js","rpm-config.js","access.js","budgets.js","connectors.js","site.js"]){
     assert.doesNotThrow(()=>new vm.Script(fs.readFileSync(file,"utf8"),{filename:file}),file);
   }
 });
@@ -41,4 +42,19 @@ test("API projects never keep raw keys in local storage",()=>{
   assert.match(js,/api_key/);
   assert.doesNotMatch(js,/localStorage\.setItem\([^\n]*api_key/);
   assert.match(js,/MIMO_API_ROLE=execution|execution service/i);
+});
+
+
+test("M-FE.2 API Access uses only the approved Studio origin rather than a duplicate URL",()=>{
+  const source=fs.readFileSync("access.js","utf8");
+  const auth=fs.readFileSync("cloud-auth.js","utf8");
+  assert.match(source,/const studioOrigin=window\.MimoCloud\?\.apiOrigin/);
+  assert.match(source,/if\(!studioOrigin\) return \{url:null,reason:/);
+  assert.doesNotMatch(source,/mimo-backend-git-[0-9]+\.[a-z0-9-]+\.run\.app/);
+  assert.match(auth,/const ACTIVE_API_ENVIRONMENT = "production"/);
+  assert.match(auth,/const APPROVED_PRODUCTION_STUDIO_ORIGIN = "https:\/\/mimo-backend-git-hhe6zssqxa-ew\.a\.run\.app"/);
+  assert.match(auth,/const APPROVED_STAGING_STUDIO_ORIGIN = ""/);
+  assert.match(auth,/Object\.defineProperty\(cloud, "apiOrigin"/);
+  assert.doesNotMatch(auth,/localStorage\.getItem\([^)]*api/i);
+  assert.doesNotMatch(auth,/location\.(?:search|hash)/);
 });

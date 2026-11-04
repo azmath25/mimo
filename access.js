@@ -2,7 +2,8 @@
 (function(){
   "use strict";
   const $=id=>document.getElementById(id),safe=()=>MimoSite.safe;
-  const studioOrigin="https://mimo-backend-git-993130348924.europe-west1.run.app";
+  // Read the same code-reviewed Studio origin used for authenticated Firebase requests.
+  // Never maintain a second, potentially divergent production/staging URL here.
   let projects=[],workflows=[],versions=new Map(),newKey=null,requestExample="",endpoint="",loadedUid=null;
   let verifiedOrigin=null,verifyDetail="";
   const msg=(id,text,error=false)=>MimoSite.notice(id,text,error);
@@ -75,6 +76,8 @@
     updateEndpoint();
   }
   function getOrigin(){
+    const studioOrigin=window.MimoCloud?.apiOrigin;
+    if(!studioOrigin) return {url:null,reason:"Studio API origin is not configured."};
     const value=$("executionOrigin").value.trim().replace(/\/+$/,"");
     if(!value)return {url:null,reason:"Execution service not configured"};
     try{

@@ -1,5 +1,7 @@
 # Mimo Studio — Cloud-connected frontend
 
+> **Unreleased M-FE.2 staging safety:** On `feature/platform-autonomy-v1`, authenticated API requests now **fail closed** until an isolated staging Studio Cloud Run origin is explicitly approved in `cloud-auth.js` by a source review. The known existing production URL below is background/reference information, **not the active target of this feature branch**. See [M-FE.2 security checkpoint](docs/M_FE2_STAGING_AUTH_HARDENING.md). Do not change the target via query parameters or browser storage, and do not deploy this branch without the separate staging go/no-go process.
+
 **Architecture:** A six-page static site. `index.html` is the dashboard, `studio.html` preserves the v3.3 canvas and block builder, and separate pages manage workflows, AI models/API connections, API projects/endpoint generation, and budgets/usage. Firebase Auth protects the UI; Cloud Run protects all admin APIs. The UX upgrade also adds a runnable cloud starter workflow, run-readiness checks, keyboard saving, and per-administrator local recovery after accidental tab closure.
 
 ## Services

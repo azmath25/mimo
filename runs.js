@@ -3,45 +3,83 @@
 "use strict";
 const $=id=>document.getElementById(id),safe=v=>MimoSite.safe(v),api=(p,o)=>MimoSite.api(p,o);
 let runs=[],selected=null,offset=0,loading=false,busy=false;
+let listEpoch=0,selectionEpoch=0;
+let eventRows=[],eventCursor=0,eventsBusy=false;
+let followTimer=null,followPending=false,followTarget=null,followDeadline=0;
+const ACTIVE_STATUSES=new Set(["started","queued","running","dispatch_failed"]);
 const note=(text,error=false)=>MimoSite.notice("runsFeedback",text,error);
 function serialize(x){try{return JSON.stringify(x,null,2)}catch{return String(x)}}
 function details(row){return safe(row.workflow_id)+" · v"+safe(row.version)+" · "+safe(MimoSite.date(row.created_at))}
+function renderEventRows(items){
+ return items.map(e=>'<article class="mg-row"><div class="mg-row-body"><strong>#'+safe(e.seq)+' · '+safe(e.type)+'</strong><small>'+safe(MimoSite.date(e.created_at))+'</small><details><summary>Event metadata</summary><pre class="mg-pre">'+safe(serialize(e.payload))+'</pre></details></div></article>').join("");
+}
 function rowHtml(r){return '<article class="mg-row" data-run="'+safe(r.id)+'"><div class="mg-row-body"><strong>'+safe(r.workflow_id)+
  ' <span class="mg-pill">'+safe(r.status)+'</span></strong><small>'+details(r)+'</small><small>'+safe(r.id)+'</small></div><div class="mg-row-actions"><button class="mg-btn small" data-action="open">Inspect</button></div></article>'}
 async function list(reset=true){
- if(loading)return;loading=true;
- if(reset){runs=[];offset=0;}
+ // A new filter/refresh supersedes an older in-flight list request. Paging
+ // still refuses concurrent duplicate loads.
+ if(loading&&!reset)return;
+ if(reset){++listEpoch;runs=[];offset=0;}
+ const epoch=listEpoch;
+ loading=true;
+ $("loadMoreRuns").disabled=true;
  try{
   const q=new URLSearchParams({limit:"30",offset:String(offset)});
   if($("runWorkflowFilter").value.trim())q.set("workflow_id",$("runWorkflowFilter").value.trim());
   if($("runStatusFilter").value)q.set("status",$("runStatusFilter").value);
   const response=await api("/v1/runs?"+q);
+  if(epoch!==listEpoch)return;
   const batch=response.runs||[];runs.push(...batch);offset+=batch.length;
   $("runsList").innerHTML=runs.length?runs.map(rowHtml).join(""):'<div class="mg-empty">No runs found. Execute a workflow in Studio to create a persistent run.</div>';
   $("loadMoreRuns").disabled=batch.length<30;
- }catch(e){note("Cannot list runs: "+e.message,true)}
- finally{loading=false}
+ }catch(e){if(epoch===listEpoch)note("Cannot list runs: "+e.message,true)}
+ finally{if(epoch===listEpoch)loading=false}
 }
 async function choose(id){
+ if(!id)return;
  selected=id;
+ const epoch=++selectionEpoch;
+ eventRows=[];eventCursor=0;
+ $("loadMoreEvents").disabled=true;
+ // Never leave buttons for the previous run actionable while a new run loads.
+ $("runRefresh").disabled=true;
+ $("runResume").disabled=true;
+ $("runCancel").disabled=true;
+ note("Loading selected run…");
  try{
   const data=await api("/v1/runs/"+encodeURIComponent(id)+"/timeline");
+  if(epoch!==selectionEpoch||selected!==id)return;
   const r=data.run;
   $("runBadge").textContent=r.status;
   $("runMeta").textContent=r.id+" · "+details(r);
   $("runRefresh").disabled=false;
   $("runResume").disabled=!["interrupted","failed","dispatch_failed"].includes(r.status);
   $("runCancel").disabled=!["started","running","queued","waiting_for_review"].includes(r.status);
+  const tasks=data.node_tasks||[];
+  $("nodeTaskList").innerHTML=tasks.length?tasks.map(t=>
+    '<article class="mg-row" data-task-node="'+safe(t.node_id)+'">'+
+    '<div class="mg-row-body"><strong>'+safe(t.node_id)+
+    ' · '+safe(t.status)+'</strong><small>Claims '+safe(t.claim_count)+
+    (t.lease_expires_at?' · lease '+safe(MimoSite.date(t.lease_expires_at)):'')+
+    '</small></div><div class="mg-row-actions">'+
+    (t.status==="waiting_for_review"&&r.status==="waiting_for_review"?
+      '<button type="button" class="mg-btn danger small" data-manual-recover>Manual recovery</button>':'')+
+    '</div></article>'
+  ).join(""):'<div class="mg-empty">This run does not have separate parallel node tasks.</div>';
   const items=data.checkpoints||[];
   $("checkpointList").innerHTML=items.length?items.map(c=>'<article class="mg-row" data-node="'+safe(c.node_id)+'"><div class="mg-row-body"><strong>'+safe(c.node_id)+' · '+safe(c.status)+'</strong><small>Attempt '+safe(c.attempt)+(c.chosen_port?' · branch '+safe(c.chosen_port):'')+'</small><details><summary>Inspect actual output</summary><pre class="mg-pre">'+safe(serialize(c.result))+'</pre></details></div><div class="mg-row-actions">'+
     (["failed","completed","interrupted"].includes(r.status)?'<button class="mg-btn small" data-action="retry">Retry from here</button>':'')+
     ((c.result?.content?.object_key||c.result?.images?.length)?'<button class="mg-btn small" data-action="artifact">Download artifact</button>':'')+
     '</div></article>').join(""):'<div class="mg-empty">No checkpoints yet.</div>';
-  const events=data.events||[];
-  $("eventList").innerHTML=events.length?events.map(e=>'<article class="mg-row"><div class="mg-row-body"><strong>#'+safe(e.seq)+' · '+safe(e.type)+'</strong><small>'+safe(MimoSite.date(e.created_at))+'</small><details><summary>Event metadata</summary><pre class="mg-pre">'+safe(serialize(e.payload))+'</pre></details></div></article>').join(""):'<div class="mg-empty">No events yet.</div>';
+  const events=Array.isArray(data.events)?data.events:[];
+  eventRows=events;
+  eventCursor=events.length?Number(events[events.length-1].seq)||0:0;
+  $("eventList").innerHTML=events.length?renderEventRows(events):'<div class="mg-empty">No events yet.</div>';
+  $("loadMoreEvents").disabled=events.length<200;
+  $("eventCount").textContent=events.length+" events loaded"+(events.length===200?" · more may be available":"");
   history.replaceState(null,"","?run="+encodeURIComponent(id));
   note("Run loaded from persistent backend history.");
- }catch(e){note("Cannot inspect run: "+e.message,true)}
+ }catch(e){if(epoch===selectionEpoch&&selected===id)note("Cannot inspect run: "+e.message,true)}
 }
 async function action(command){
  if(!selected||busy)return;
@@ -50,6 +88,75 @@ async function action(command){
  try{await api("/v1/runs/"+encodeURIComponent(selected)+"/"+command,{method:"POST"});await choose(selected);await list()}
  catch(e){note(e.message,true)}finally{busy=false}
 }
+// The timeline endpoint deliberately pages at 200 events by default.
+async function loadMoreEvents(){
+ if(!selected||eventsBusy||!eventCursor||$("loadMoreEvents").disabled)return;
+ const id=selected,epoch=selectionEpoch,start=eventCursor;
+ eventsBusy=true;$("loadMoreEvents").disabled=true;
+ try{
+  const data=await api("/v1/runs/"+encodeURIComponent(id)+"/timeline?after="+start+"&limit=200");
+  if(id!==selected||epoch!==selectionEpoch)return;
+  const batch=Array.isArray(data.events)?data.events:[];
+  // Reject stale/duplicate pages to avoid endlessly rendering the same records.
+  const fresh=batch.filter(e=>Number.isSafeInteger(Number(e.seq))&&Number(e.seq)>start);
+  if(fresh.length){
+   eventRows.push(...fresh);
+   eventCursor=Number(fresh[fresh.length-1].seq);
+   $("eventList").innerHTML=renderEventRows(eventRows);
+  }
+  $("eventCount").textContent=eventRows.length+" events loaded"+
+    (batch.length===200&&fresh.length?" · more may be available":"");
+  $("loadMoreEvents").disabled=batch.length<200||fresh.length===0;
+ }catch(error){
+  if(id===selected&&epoch===selectionEpoch)note("Cannot load more events: "+error.message,true);
+  if(id===selected&&epoch===selectionEpoch)$("loadMoreEvents").disabled=false;
+ }finally{eventsBusy=false}
+}
+
+// An opt-in, bounded status-only read avoids repeating expensive timeline
+// requests or triggering provider calls. Manual Reload inspects checkpoints.
+function stopFollow(message){
+ if(followTimer!==null){clearInterval(followTimer);followTimer=null;}
+ followTarget=null;followPending=false;
+ if($("followRun"))$("followRun").checked=false;
+ if(message)note(message);
+}
+function startFollow(){
+ if(followTimer!==null){clearInterval(followTimer);followTimer=null;}
+ const toggle=$("followRun");
+ if(!toggle?.checked||!selected||!MimoSite.requireCloud())return;
+ followTarget=selected;
+ followDeadline=Date.now()+10*60*1000;
+ const target=followTarget;
+ followTimer=setInterval(async()=>{
+  if(followPending||busy||selected!==target)return;
+  if(!MimoSite.requireCloud()){stopFollow();return;}
+  if(typeof document!=="undefined"&&document.hidden)return;
+  if(Date.now()>followDeadline){stopFollow("Live following stopped after 10 minutes. Re-enable to continue.");return;}
+  followPending=true;
+  try{
+   const status=await api("/v1/runs/"+encodeURIComponent(target));
+   if(target!==selected||!MimoSite.requireCloud()||!toggle.checked)return;
+   if(status?.status && status.status!==$("runBadge").textContent){
+    await choose(target);
+   }
+   if(status?.status&&!ACTIVE_STATUSES.has(status.status)){
+    stopFollow("Run is "+status.status+". Follow stopped; event history remains available.");
+   }
+  }catch(error){
+   if(target===selected)note("Status follow failed: "+error.message+" (manual Reload is available)",true);
+  }finally{followPending=false}
+ },15000);
+}
+$("loadMoreEvents").addEventListener("click",loadMoreEvents);
+$("followRun").addEventListener("change",()=>{
+ if($("followRun").checked)startFollow();
+ else stopFollow();
+});
+window.addEventListener("mimo:auth-changed",()=>{
+ if(!MimoSite.requireCloud()&&followTimer!==null)stopFollow();
+});
+
 async function download(id,node){
  try{
   const blob=await MimoCloud.requestBlob("/v1/runs/"+encodeURIComponent(id)+"/artifacts/"+encodeURIComponent(node));
@@ -64,7 +171,26 @@ async function reviews(){
   $("reviewsList").innerHTML=pending.length?pending.map(x=>'<article class="mg-card" data-review="'+safe(x.id)+'"><strong>Run '+safe(x.run_id)+' · node '+safe(x.node_id)+'</strong><details><summary>Review proposed content</summary><pre class="mg-pre">'+safe(serialize(x.proposed))+'</pre></details><div class="mg-field"><label>Correction (optional)</label><textarea rows="3" data-correction placeholder="Leave empty to approve unchanged"></textarea></div><div class="mg-actions"><button class="mg-btn primary small" data-decision="approve">Approve / correct</button><button class="mg-btn danger small" data-decision="reject">Reject</button><button class="mg-btn small" data-review-run>Inspect run</button></div></article>').join(""):'<div class="mg-empty">No pending reviews.</div>';
  }catch(e){note("Cannot load reviews: "+e.message,true)}
 }
-$("runsList").addEventListener("click",e=>{const r=e.target.closest("[data-run]");if(r)choose(r.dataset.run)});
+$("nodeTaskList").addEventListener("click",async e=>{
+  const button=e.target.closest("[data-manual-recover]");
+  if(!button||!selected||busy)return;
+  const node=button.closest("[data-task-node]")?.dataset.taskNode;
+  if(!node)return;
+  const explanation=window.prompt("Explain how you investigated the failed node, verified provider billing and confirmed whether retrying is safe. Minimum 30 characters:");
+  if(!explanation)return;
+  if(explanation.trim().length<30){note("A detailed investigation reason of at least 30 characters is required.",true);return}
+  if(!window.confirm("This may repeat a billable AI request or external side effect. The backend will deny recovery while unverified spending holds or pending action approvals remain. Authorize ONE explicit retry of node "+node+"?"))return;
+  busy=true;button.disabled=true;
+  try{
+    await api("/v1/runs/"+encodeURIComponent(selected)+"/recover-node",{
+      method:"POST",body:{node_id:node,reason:explanation.trim(),
+        acknowledge_possible_duplicate_charges:true}});
+    await choose(selected);await list();
+    note("Recovery authorized and recorded in run history.");
+  }catch(error){note(error.message,true)}
+  finally{busy=false;button.disabled=false}
+});
+$("runsList").addEventListener("click",e=>{const r=e.target.closest("[data-run]");if(r){choose(r.dataset.run);if($("followRun").checked)startFollow()}});
 $("checkpointList").addEventListener("click",async e=>{
  const btn=e.target.closest("[data-action]");if(!btn||!selected)return;
  const node=btn.closest("[data-node]")?.dataset.node;if(!node)return;

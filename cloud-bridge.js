@@ -6,7 +6,8 @@
     if (node.type === "input" || node.type === "output") return node.type;
     const execution = node.execution || (node.type === "condition" ? "condition" : ["tool", "tikz"].includes(node.type) ? "tool" : "ai");
     if (execution === "condition") return "condition";
-    if (execution === "tool") return node.toolKind === "tikz" || node.type === "tikz" ? "compiler" : "tool";
+    if (execution === "tool") return node.toolKind === "tikz" || node.type === "tikz" ? "compiler" :
+      node.toolKind === "github-issue" || node.type === "connector" ? "connector" : "tool";
     return "ai";
   };
   function resolveModel(node, models) {
@@ -60,10 +61,20 @@
         const budget = Number(n.maxTokens ?? 1024);
         config.max_tokens = Number.isInteger(budget) && budget >= 64 && budget <= 16384 ? budget : 1024;
         config.response = {kind: ["image","json","code","chat"].includes(n.output)?n.output:"text", delivery:"complete"};
+        if(n.agentEnabled===true){
+          config.agent={enabled:true,max_steps:Number(n.agentMaxSteps||4),
+            tools:asArray(n.agentTools).filter(x=>typeof x==="string")};
+        }
         if (n.output==="image") {
           config.response.size = n.imageSize||"1024x1024";
           config.response.n = Number(n.imageCount||1);
         }
+      } else if (type === "connector") {
+        config.installation_id = String(n.connectorInstallation || "");
+        config.operation = n.connectorOperation === "read_issue" ? "read_issue" : "create_issue";
+        config.args = config.operation === "read_issue"
+          ? {issue_number:String(n.connectorNumber || "{{inputs.1}}")}
+          : {title:String(n.connectorTitle || ""),body:String(n.connectorBody ?? "{{inputs.1}}")};
       } else if (type === "tool") {
         config.tool = ({uppercase: "upper", lowercase: "lower", trim: "trim", replace: "replace", "json-field": "json_field"})[n.toolKind] || String(n.toolKind || "unsupported");
         config.input = "{{inputs.1}}";
@@ -88,7 +99,8 @@
     return {
       schema_version: 1, workflow_id: id, title: String(flow.name || "Untitled workflow"),
       inputs: {mimo_ui: flow},
-      outputs: {}, nodes, edges
+      outputs: {exports: asArray(flow.apiExports).map(e=>({...e})),
+                ...(flow.parallelExecution===true?{execution_mode:"parallel"}:{})}, nodes, edges
     };
   }
   function fromBackend(definition) {
@@ -99,22 +111,40 @@
     const nodes = asArray(definition?.nodes).map((n, i) => ({
       id: String(n.id), type: n.type === "ai" ? "spark" : n.type === "compiler" ? "tikz" : n.type,
       name: String(n.config?.name || n.type), x: 60 + (i % 4) * 320, y: 130 + Math.floor(i / 4) * 240,
-      execution: n.type === "tool" || n.type === "compiler" ? "tool" : n.type === "condition" ? "condition" : "ai",
+      execution: ["tool","compiler","connector"].includes(n.type) ? "tool" : n.type === "condition" ? "condition" : "ai",
       prompt: n.config?.prompt || "", model: n.config?.model_id || "",
       maxTokens: n.config?.max_tokens || 1024,
-      toolKind: n.config?.tool === "upper" ? "uppercase" : n.config?.tool === "lower" ? "lowercase" : n.config?.tool || "trim",
+      toolKind: n.type==="connector" ? "github-issue" : n.config?.tool === "upper" ? "uppercase" : n.config?.tool === "lower" ? "lowercase" : n.config?.tool || "trim",
+      connectorInstallation:n.config?.installation_id||"",
+      connectorOperation:n.config?.operation||"read_issue",
+      connectorNumber:String(n.config?.args?.issue_number||"{{inputs.1}}"),
+      connectorTitle:n.config?.args?.title||"",
+      connectorBody:n.config?.args?.body||"{{inputs.1}}",
       branches: asArray(n.config?.ports).map(port => ({id:port,label:port,op:"==",value:""})),
-      accept: ["text","document","image","chat"], output: "text"
+      accept: ["text","document","image","chat"],
+      output: n.type==="ai" && ["text","json","code","chat","image"].includes(n.config?.response?.kind)
+        ? n.config.response.kind : "text",
+      agentEnabled: n.config?.agent?.enabled===true,
+      agentMaxSteps: n.config?.agent?.max_steps||4,
+      agentTools: asArray(n.config?.agent?.tools)
     }));
     return {
       kind:"mimo/workflow", version:4, name:definition?.title || "Imported cloud workflow",
       nodes, edges:asArray(definition?.edges).map(e=>({from:e.source,to:e.target,...(e.source_port && e.source_port !== "out" ? {branchId:e.source_port} : {})})),
-      initialInput:{format:"text",text:"",fileName:""}, workflowGoal:"", customBlocks:{}
+      initialInput:{format:"text",text:"",fileName:""}, workflowGoal:"", customBlocks:{},
+      apiExports:asArray(definition?.outputs?.exports),
+      parallelExecution:definition?.outputs?.execution_mode==="parallel"
     };
   }
   function runIssues(flow, models, capabilities = {}) {
     const errors = [];
     const nodes = asArray(flow?.nodes), edges = asArray(flow?.edges);
+    // Studio's browser-created parallel runs require the Studio *itself* to
+    // enqueue Cloud Tasks. An enabled Execution/Worker service alone does not
+    // make the Studio draft-run endpoint background-capable.
+    if (flow?.parallelExecution === true &&
+        capabilities?.run_api?.background_configured !== true)
+      errors.push("Parallel runs require Studio background dispatch. Ask the administrator to enable Cloud Tasks on the Studio service; Execution/Worker settings alone are insufficient.");
     if (!nodes.some(n=>n.type==="input") || !nodes.some(n=>n.type==="output")) errors.push("A cloud run needs an Input and Output block.");
     const byId=new Map(nodes.map(n=>[n.id,n]));
     const reachable=new Set(nodes.filter(n=>n.type==="input").map(n=>n.id));
@@ -132,6 +162,17 @@
         errors.push("A connection references a block that no longer exists.");
       }
     }
+    const names=new Set();
+    for(const item of asArray(flow?.apiExports)){
+      if(!item||typeof item.name!=="string"||!/^[a-z][a-z0-9_]{0,63}$/.test(item.name)||names.has(item.name))
+        errors.push("API exports need unique lowercase names.");
+      else names.add(item.name);
+      if(typeof item?.source!=="string"||!reachable.has(item.source))
+        errors.push("API export source must be connected to an Input block.");
+      if(item?.schema!==undefined && (typeof item.schema!=="object"||item.schema===null||Array.isArray(item.schema)))
+        errors.push("API export schema must be a JSON Schema object.");
+    }
+    if(asArray(flow?.apiExports).length>16)errors.push("Only 16 named API exports are supported.");
     for (const n of nodes) {
       const type = backendType(n);
       if(type!=="input" && !edges.some(e=>e.to===n.id)){
@@ -148,8 +189,26 @@
         if (n.source === "manual" && !String(n.manualInput||"").trim())
           errors.push("Manual input is empty for " + n.name + ".");
       }
+      if (type === "connector") {
+        if(!/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/.test(String(n.connectorInstallation||"")))
+          errors.push("Connector ‘"+n.name+"’ needs a valid installed adapter ID.");
+        if(!["create_issue","read_issue"].includes(n.connectorOperation))
+          errors.push("Connector ‘"+n.name+"’ must choose an allowed operation.");
+        if(n.connectorOperation==="create_issue" && !String(n.connectorTitle||"").trim())
+          errors.push("Connector ‘"+n.name+"’ requires an issue title.");
+        if(n.connectorOperation==="read_issue" && !String(n.connectorNumber||"").trim())
+          errors.push("Connector ‘"+n.name+"’ requires an issue number.");
+      }
       if (type === "ai" && !asArray(models).some(m=>m.id === resolveModel(n, models) && m.enabled)) {
         errors.push("Configure an enabled backend model for ‘" + n.name + "’ before cloud execution.");
+      }
+      if(type==="ai" && n.agentEnabled===true){
+        const steps=Number(n.agentMaxSteps||4),tools=asArray(n.agentTools);
+        if(!Number.isInteger(steps)||steps<1||steps>8)
+          errors.push("Agent "+n.name+" must use 1–8 model steps.");
+        if(n.output==="image")errors.push("Autonomous agents cannot directly generate images.");
+        if(tools.some(t=>!["upper","lower","trim","replace","json_field"].includes(t))||new Set(tools).size!==tools.length)
+          errors.push("Agent "+n.name+" uses an unsupported or duplicated tool.");
       }
       if(type === "ai" && n.maxTokens !== undefined &&
          (!Number.isInteger(Number(n.maxTokens)) || Number(n.maxTokens)<64 || Number(n.maxTokens)>16384)) {
