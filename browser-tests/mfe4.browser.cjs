@@ -196,3 +196,63 @@ test("local Chromium: Runs errors remain visible to assistive technology",async(
     assert.equal(app.blocked.some(x=>x.endsWith(".run.app")),false);
   } finally {await close(app)}
 });
+
+for (const width of [1280]) {
+  test("local desktop Chromium " + width + "px: Run options visible and fail closed",async()=>{
+    const app=await fixture("studio.html",width,800);
+    try {
+      const p=app.page;
+      const toggle=p.locator("#mimoRunOptions > summary");
+      await toggle.waitFor();
+      assert.equal(await toggle.isVisible(),true);
+      await toggle.click();
+      const panel=p.locator(".mimo-run-options-panel");
+      assert.equal(await panel.isVisible(),true);
+      const box=await panel.boundingBox();
+      assert.ok(box&&box.x>=0&&box.x+box.width<=width+2,
+        "Run options panel must remain within the viewport at width "+width);
+      assert.equal(await p.locator('input[name="mimoExecutionMode"][value="standard"]').isChecked(),true);
+      assert.equal(await p.locator('input[name="mimoExecutionMode"][value="background"]').isDisabled(),true);
+      assert.equal(await p.locator('input[name="mimoExecutionMode"][value="parallel"]').isDisabled(),false,
+        "Parallel may be selected as a workflow design choice before backend setup");
+      await p.locator('input[name="mimoExecutionMode"][value="parallel"]').check();
+      assert.equal(await p.locator("#parallelExecutionEnabled").isChecked(),true);
+      assert.equal(await p.locator("#exportsDialog").isHidden(),true);
+      assert.equal(await p.locator("#exportsDialog").isHidden(),true,
+        "Opening Run options must not leave API exports modal visible");
+      await p.screenshot({path:path.join(output,"studio-run-options-"+width+".png")});
+      assert.equal(app.blocked.some(x=>x.endsWith(".run.app")),false);
+    } finally {await close(app)}
+  });
+}
+test("local Chromium: selecting background and parallel uses the original workflow state",async()=>{
+  const app=await fixture("studio.html",1280,800);
+  try {
+    const p=app.page;
+    await p.locator("#mimoRunOptions > summary").waitFor();
+    await p.evaluate(()=>{
+      window.MimoCloud={
+        authorized:true,user:{uid:"local-fixture"},
+        request:async path=>path==="/v1/capabilities" ?
+          {run_api:{background_configured:true,parallel_nodes:true}} :
+          path==="/v1/models" ? [] : {workflows:[]}
+      };
+      window.dispatchEvent(new Event("mimo:auth-changed"));
+    });
+    await p.locator("#mimoRunOptions > summary").click();
+    await p.waitForFunction(()=>!document.querySelector('input[name="mimoExecutionMode"][value="parallel"]').disabled);
+    await p.locator('input[name="mimoExecutionMode"][value="parallel"]').check();
+    assert.equal(await p.locator("#parallelExecutionEnabled").isChecked(),true);
+    assert.equal(await p.locator("#backgroundRun").isChecked(),true);
+    assert.equal(await p.locator("#exportsDialog").isHidden(),true);
+    assert.equal(await p.locator(".mimo-run-mode-label").textContent(),"Parallel");
+    await p.locator('input[name="mimoExecutionMode"][value="background"]').check();
+    assert.equal(await p.locator("#parallelExecutionEnabled").isChecked(),false);
+    assert.equal(await p.locator("#backgroundRun").isChecked(),true);
+    await p.locator('input[name="mimoExecutionMode"][value="standard"]').check();
+    assert.equal(await p.locator("#parallelExecutionEnabled").isChecked(),false);
+    assert.equal(await p.locator("#backgroundRun").isChecked(),false);
+    assert.equal(await p.locator("#exportsDialog").isHidden(),true);
+    assert.equal(app.blocked.some(x=>x.endsWith(".run.app")),false);
+  } finally {await close(app)}
+});
