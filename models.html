@@ -63,8 +63,8 @@
 </form></section>
 <div class="mg-section"><h2>Requests-per-minute policies</h2><span class="mg-hint">Per provider endpoint + remote model + API credential reference</span></div>
 <section class="mg-card" id="rpmPolicyPanel">
- <div class="mg-alert warn"><strong>Configuration only — M-RPM.1.</strong>
- These limits are saved in the backend, but are <strong>not enforced</strong> on provider calls yet. Concurrent-worker throttling and provider 429 handling are scheduled for M-RPM.2 and M-RPM.3. Do not rely on these settings to avoid charges or provider rate-limit errors.</div>
+ <div class="mg-alert warn"><strong>Production RPM protection (M-RPM.2–4).</strong>
+ A policy marked <strong>Enforced</strong> is applied by the backend across workers, including provider 429 cooldowns. <strong>No policy means no per-model RPM cap.</strong> RPM controls call volume, not total spend; configure budgets separately. Verify each policy’s live status below.</div>
  <form id="rpmPolicyForm" style="margin-top:15px">
   <div class="mg-fields">
    <div class="mg-field"><label for="rpmModelSelect">Registered model</label>
