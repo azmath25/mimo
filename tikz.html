@@ -6,6 +6,17 @@
 .tikz-preview{width:100%;height:530px;border:1px solid #ddd;border-radius:12px;background:#fff}
 .tikz-layout{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 @media(max-width:900px){.tikz-layout{grid-template-columns:1fr}.tikz-preview{height:380px}}
+.tikz-output-heading{font-size:12px;font-weight:750;color:#405664;margin:5px 0 9px}
+.tikz-output-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.tikz-choice{border:1px solid #d4e1e8;background:#f8fbfd;color:#30566f;border-radius:10px;padding:12px 8px;font:700 12px Inter,system-ui,sans-serif;cursor:pointer;min-height:44px;transition:background .15s,border-color .15s;white-space:nowrap}
+.tikz-choice:hover{background:#eaf3f8;border-color:#a9c8dd}
+.tikz-choice.active,.tikz-choice[aria-pressed="true"]{background:#205981;color:#fff;border-color:#205981;box-shadow:0 2px 7px #20598125}
+.tikz-choice:focus-visible{outline:3px solid #8bb8d2;outline-offset:2px}
+.tikz-choice:disabled{opacity:.55;cursor:wait}
+.tikz-output-hint{margin:10px 0 16px}
+@media(max-width:460px){.tikz-output-choices{grid-template-columns:repeat(3,minmax(0,1fr))}.tikz-choice{font-size:11px;padding:10px 5px}}
+@media(prefers-reduced-motion:reduce){.tikz-choice{transition:none}}
+
 </style></head>
 <body data-page="tikz" style="margin:0"><main class="mg-page"><div class="mg-wrap">
 <section class="mg-hero"><div><span class="mg-eyebrow">Mathematical tools</span>
@@ -15,19 +26,18 @@
 <div class="tikz-layout">
 <section class="mg-card">
 <div class="mg-section"><h2>LaTeX source</h2><button type="button" class="mg-btn small" id="resetTikz">Example</button></div>
-<label class="mg-hint" for="tikzFormat">Output format</label>
-<select id="tikzFormat" class="mg-btn" style="margin:8px 0 15px;width:100%"><option value="pdf">PDF document</option><option value="png">PNG image (rendered from PDF)</option></select>
-<div id="tikzDpiRow" class="mg-field" hidden style="margin-bottom:15px">
-<label class="mg-hint" for="tikzDpi">PNG resolution (DPI)</label>
-<select id="tikzDpi" class="mg-btn" style="display:block;margin:8px 0;width:100%">
-<option value="160">160 DPI · Smaller file (legacy)</option>
-<option value="240">240 DPI · Balanced</option>
-<option value="300" selected>300 DPI · Recommended</option>
-<option value="450">450 DPI · High detail</option>
-<option value="600">600 DPI · Print quality</option>
-</select>
-<p class="mg-hint">Higher DPI produces sharper raster images but uses more memory and storage. PDF stays resolution independent. PNG output is limited to 16 megapixels and 8 MB.</p>
+<div class="tikz-output-heading">Output format</div>
+<div class="tikz-output-choices" role="group" aria-label="TikZ output format and PNG resolution">
+<button type="button" id="tikzChoicePdf" class="tikz-choice active" aria-pressed="true" data-format="pdf">PDF</button>
+<button type="button" id="tikzChoicePng160" class="tikz-choice" aria-pressed="false" data-format="png:160">PNG 160</button>
+<button type="button" id="tikzChoicePng240" class="tikz-choice" aria-pressed="false" data-format="png:240">PNG 240</button>
+<button type="button" id="tikzChoicePng300" class="tikz-choice" aria-pressed="false" data-format="png:300">PNG 300</button>
+<button type="button" id="tikzChoicePng450" class="tikz-choice" aria-pressed="false" data-format="png:450">PNG 450</button>
+<button type="button" id="tikzChoicePng600" class="tikz-choice" aria-pressed="false" data-format="png:600">PNG 600</button>
 </div>
+<p class="mg-hint tikz-output-hint">PNG numbers are DPI. Higher values improve detail but increase file size. PDF remains vector quality.</p>
+<select id="tikzFormat" hidden aria-hidden="true" tabindex="-1"><option value="pdf">PDF</option><option value="png">PNG</option></select>
+<select id="tikzDpi" hidden aria-hidden="true" tabindex="-1"><option value="160">160</option><option value="240">240</option><option value="300" selected>300</option><option value="450">450</option><option value="600">600</option></select>
 <label class="mg-hint" for="tikzSource">Complete LaTeX document, including the preamble</label>
 <textarea id="tikzSource" class="tikz-editor" spellcheck="false" aria-label="LaTeX TikZ source">\documentclass[tikz,border=5pt]{standalone}
 \begin{document}

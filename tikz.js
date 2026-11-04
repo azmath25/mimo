@@ -3,13 +3,23 @@
  "use strict";
  const $=id=>document.getElementById(id);
  const initial=$("tikzSource").value;
- let lastUrl=null, active=false, lastFormat="pdf";
+ let lastUrl=null, active=false, lastFormat="pdf", compiling=false;
+ const outputChoices=[
+   {id:"Pdf",format:"pdf",dpi:null},
+   ...[160,240,300,450,600].map(dpi=>({id:"Png"+dpi,format:"png",dpi}))
+ ];
  function syncFormatLabels(){
    const format=$("tikzFormat").value.toUpperCase();
    $("compileTikz").textContent="Compile "+format;
    $("downloadTikz").textContent="Download "+format;
    $("tikzPreviewTitle").textContent=format+" preview";
-   $("tikzDpiRow").hidden=format!=="PNG";
+   for(const choice of outputChoices){
+     const button=$("tikzChoice"+choice.id);
+     const selected=choice.format===$("tikzFormat").value &&
+       (choice.format==="pdf" || String(choice.dpi)===$("tikzDpi").value);
+     button.setAttribute("aria-pressed",selected?"true":"false");
+     button.classList.toggle("active",selected);
+   }
  }
  function note(message,bad=false){
    const target=$("tikzStatus");target.textContent=message;
@@ -35,15 +45,17 @@
      note(active?"Ready to compile.":"Compiler service unavailable.",!active);
    }catch(e){active=false;$("compileTikz").disabled=true;note(e.message,true)}
  }
- $("tikzFormat").addEventListener("change",()=>{
-   freeUrl();
-   syncFormatLabels();
-   note(active?"Ready to compile "+$("tikzFormat").value.toUpperCase()+".":
-     "Sign in and enable the compiler to begin.",!active);
- });
- $("tikzDpi").addEventListener("change",()=>{
-   freeUrl();note(active?"PNG resolution set to "+$("tikzDpi").value+" DPI. Compile to apply it.":"Compiler not ready.",!active);
- });
+ for(const choice of outputChoices){
+   $("tikzChoice"+choice.id).addEventListener("click",()=>{
+     if(compiling)return;
+     $("tikzFormat").value=choice.format;
+     if(choice.dpi)$("tikzDpi").value=String(choice.dpi);
+     freeUrl();
+     syncFormatLabels();
+     const selected=choice.format==="png"?"PNG "+choice.dpi+" DPI":"PDF";
+     note(active?"Ready to compile "+selected+".":"Selected "+selected+". Sign in to compile.",!active);
+   });
+ }
  $("compileTikz").addEventListener("click",async()=>{
    if(!active||!window.MimoCloud?.authorized)return;
    const source=$("tikzSource").value;
@@ -52,8 +64,8 @@
    if(format==="png"&&(!Number.isInteger(dpi)||dpi<72||dpi>600))return note("Choose a PNG DPI between 72 and 600.",true);
    if(!source.trim())return note("Write some TikZ/LaTeX source first.",true);
    $("compileTikz").disabled=true;
-   $("tikzFormat").disabled=true;
-   $("tikzDpi").disabled=true;
+   compiling=true;
+   for(const choice of outputChoices)$("tikzChoice"+choice.id).disabled=true;
    freeUrl();note("Compiling via isolated TeX Live worker…");
    try{
      const blob=await MimoCloud.requestBlob("/v1/compiler/"+format,{method:"POST",body:format==="png"?{source,dpi}:{source}});
@@ -66,7 +78,7 @@
      $("downloadTikz").disabled=false;
      note("Compilation complete. "+format.toUpperCase()+(format==="png"?" at "+dpi+" DPI":"")+" is ready to preview or download.");
    }catch(e){note("Compilation failed: "+e.message,true)}
-   finally{$("tikzFormat").disabled=false;$("tikzDpi").disabled=false;$("compileTikz").disabled=!active}
+   finally{compiling=false;for(const choice of outputChoices)$("tikzChoice"+choice.id).disabled=false;$("compileTikz").disabled=!active}
  });
  $("downloadTikz").addEventListener("click",()=>{
    if(!lastUrl)return;

@@ -53,7 +53,10 @@ test("TikZ Lab and Studio expose explicit DPI choices without changing other pag
     assert.ok(lab.includes('value="'+choice+'"'),"Missing DPI preset "+choice);
   }
   assert.match(lab,/id="tikzDpi"/);
-  assert.match(lab,/id="tikzDpiRow"/);
+  for(const choice of ["Pdf","Png160","Png240","Png300","Png450","Png600"]){
+    assert.ok(lab.includes('id="tikzChoice'+choice+'"'),"Visible button missing: "+choice);
+  }
+  assert.doesNotMatch(lab,/id="tikzDpiRow"/);
   assert.match(js,/body:format==="png"\?\{source,dpi\}:\{source\}/);
   assert.match(studio,/CompilerDpi/);
   assert.match(studio,/scheduleDraftRecovery\(\)/);
