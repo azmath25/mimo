@@ -47,10 +47,11 @@ tokens remain protected.
 
 - Node tests: mode mapping, no implicit capability enablement, frozen
   Studio editor guard and non-destructive export behavior.
-- Local Playwright: 320/390/1280px Run options accessibility,
+- Local Playwright: desktop Run options accessibility,
   fail-closed behavior without Cloud Tasks, choosing all three modes
   when a synthetic **local** capability response is enabled, and no
-  remote API calls. Existing viewport regression tests are retained.
+  remote API calls. Existing unrelated mobile viewport regression tests
+  remain unchanged, but M-FE.6 does not optimize new features for phones.
 - GitHub Actions frontend checks and Pages build are release gates.
 
 ## Rollback
