@@ -7,16 +7,16 @@ import {
 
 // Code-reviewed targets ONLY. Never read Firebase token destinations from the URL,
  // localStorage, window globals, user text fields, or a remote config response.
- // This unreleased feature branch intentionally defaults to an unconfigured,
- // fail-closed staging target. Add a verified isolated-staging service HTTPS
- // origin by code review before any staging browser test. Change the active
- // environment only as part of a separately approved release.
-const ACTIVE_API_ENVIRONMENT = "staging";
+ // This unreleased production-integration branch pins the live Studio API
+ // HTTPS origin verified in Cloud Shell on 2026-11-04. Do not merge or deploy
+ // until frontend release and Firebase/CORS checks are separately approved.
+const ACTIVE_API_ENVIRONMENT = "production";
 const PREVIOUS_PRODUCTION_STUDIO_ORIGIN =
   "https://mimo-backend-git-993130348924.europe-west1.run.app";
+const APPROVED_PRODUCTION_STUDIO_ORIGIN = "https://mimo-backend-git-hhe6zssqxa-ew.a.run.app";
 const APPROVED_STAGING_STUDIO_ORIGIN = "";
 const APPROVED_STUDIO_ORIGINS = Object.freeze({
-  production: PREVIOUS_PRODUCTION_STUDIO_ORIGIN,
+  production: APPROVED_PRODUCTION_STUDIO_ORIGIN,
   staging: APPROVED_STAGING_STUDIO_ORIGIN
 });
 function approvedApiOrigin(environment) {
@@ -31,14 +31,14 @@ function approvedApiOrigin(environment) {
     !url.search && !url.hash && !url.port;
   const cloudRunHost = /^[a-z0-9][a-z0-9.-]*\.run\.app$/.test(url.hostname);
   if (!bare || !cloudRunHost) throw Error("Unapproved Mimo Studio API origin.");
-  if (environment === "staging" && candidate === PREVIOUS_PRODUCTION_STUDIO_ORIGIN)
+  if (environment === "staging" && [PREVIOUS_PRODUCTION_STUDIO_ORIGIN, APPROVED_PRODUCTION_STUDIO_ORIGIN].includes(candidate))
     throw Error("Staging must use a different, independently verified service.");
   return candidate;
 }
 const API_ORIGIN = approvedApiOrigin(ACTIVE_API_ENVIRONMENT);
 function configuredApiOrigin() {
   if (!API_ORIGIN)
-    throw Error("Isolated staging Studio API is not yet approved. No API request was sent.");
+    throw Error("Mimo Studio API origin is not configured. No API request was sent.");
   return API_ORIGIN;
 }
 function approvedApiPath(path, origin) {
