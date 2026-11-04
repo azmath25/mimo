@@ -139,6 +139,12 @@
   function runIssues(flow, models, capabilities = {}) {
     const errors = [];
     const nodes = asArray(flow?.nodes), edges = asArray(flow?.edges);
+    // Studio's browser-created parallel runs require the Studio *itself* to
+    // enqueue Cloud Tasks. An enabled Execution/Worker service alone does not
+    // make the Studio draft-run endpoint background-capable.
+    if (flow?.parallelExecution === true &&
+        capabilities?.run_api?.background_configured !== true)
+      errors.push("Parallel runs require Studio background dispatch. Ask the administrator to enable Cloud Tasks on the Studio service; Execution/Worker settings alone are insufficient.");
     if (!nodes.some(n=>n.type==="input") || !nodes.some(n=>n.type==="output")) errors.push("A cloud run needs an Input and Output block.");
     const byId=new Map(nodes.map(n=>[n.id,n]));
     const reachable=new Set(nodes.filter(n=>n.type==="input").map(n=>n.id));
