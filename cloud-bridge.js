@@ -83,6 +83,7 @@
       } else if (type === "compiler") {
         config.source = "{{inputs.1}}";
         config.target = n.compilerTarget === "png" ? "png" : "pdf";
+        if (config.target === "png") config.dpi = n.compilerDpi == null ? 160 : Number(n.compilerDpi);
       } else if (type === "condition") {
         const branches = asArray(n.branches);
         config.ports = branches.map(b => String(b.id));
@@ -114,7 +115,9 @@
       execution: ["tool","compiler","connector"].includes(n.type) ? "tool" : n.type === "condition" ? "condition" : "ai",
       prompt: n.config?.prompt || "", model: n.config?.model_id || "",
       maxTokens: n.config?.max_tokens || 1024,
-      toolKind: n.type==="connector" ? "github-issue" : n.config?.tool === "upper" ? "uppercase" : n.config?.tool === "lower" ? "lowercase" : n.config?.tool || "trim",
+      toolKind: n.type==="compiler" ? "tikz" : n.type==="connector" ? "github-issue" : n.config?.tool === "upper" ? "uppercase" : n.config?.tool === "lower" ? "lowercase" : n.config?.tool || "trim",
+      compilerTarget:n.config?.target||"pdf",
+      compilerDpi:n.config?.dpi??160,
       connectorInstallation:n.config?.installation_id||"",
       connectorOperation:n.config?.operation||"read_issue",
       connectorNumber:String(n.config?.args?.issue_number||"{{inputs.1}}"),
@@ -233,6 +236,9 @@
           errors.push("TikZ cloud compilation currently supports pdflatex only.");
         if (n.compilerTarget && !["pdf", "png"].includes(n.compilerTarget))
           errors.push("TikZ cloud compilation currently returns PDF or PNG only.");
+        if (n.compilerTarget === "png" && n.compilerDpi != null &&
+            (!Number.isInteger(Number(n.compilerDpi)) || Number(n.compilerDpi) < 72 || Number(n.compilerDpi) > 600))
+          errors.push("TikZ PNG DPI must be an integer from 72 to 600.");
       }
       if (type === "condition") {
         if (n.conditionMode === "ai") errors.push("AI-based routing is not supported in cloud yet.");
