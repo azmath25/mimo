@@ -124,6 +124,7 @@ test("TikZ Lab labels and previews follow PDF/PNG selection",async()=>{
   assert.equal(element("compileTikz").textContent,"Compile PNG");
   assert.equal(element("downloadTikz").textContent,"Download PNG");
   assert.equal(element("tikzPreviewTitle").textContent,"PNG preview");
+  element("tikzChoicePng300").handlers.click(); // changing the option invalidates the previous render
   assert.equal(element("downloadTikz").disabled,true);
   await element("compileTikz").handlers.click();
   assert.equal(element("downloadTikz").disabled,false);
