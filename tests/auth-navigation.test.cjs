@@ -10,7 +10,7 @@ function boot({environment="production",stagingOrigin=""}={}){
   // Existing auth-navigation tests exercise an explicitly reviewed production
   // target; the feature branch itself defaults to fail-closed staging.
   const script=source
-    .replace('const ACTIVE_API_ENVIRONMENT = "staging";',
+    .replace(/const ACTIVE_API_ENVIRONMENT = "(?:staging|production)";/,
              'const ACTIVE_API_ENVIRONMENT = '+JSON.stringify(environment)+';')
     .replace('const APPROVED_STAGING_STUDIO_ORIGIN = "";',
              'const APPROVED_STAGING_STUDIO_ORIGIN = '+JSON.stringify(stagingOrigin)+';');
@@ -112,7 +112,7 @@ test("feature branch defaults to UNCONFIGURED staging: no Firebase token or API 
   assert.equal(app.requests.length,0);
   assert.equal(tokenRequests,0,"An unapproved endpoint must not even request an ID token");
   assert.equal(app.elements.cloudGate.hidden,false);
-  assert.match(app.elements.cloudAuthMessage.textContent,/staging Studio API is not yet approved/i);
+  assert.match(app.elements.cloudAuthMessage.textContent,/Studio API origin is not configured/i);
 });
 
 test("code-reviewed exact staging Cloud Run origin is the only token destination",async()=>{
@@ -151,6 +151,7 @@ for(const malicious of [
   "https://mimo-staging-abc.a.run.app?token=1",
   "https://mimo-staging-abc.a.run.app#frag",
   "https://mimo-backend-git-993130348924.europe-west1.run.app",
+  "https://mimo-backend-git-hhe6zssqxa-ew.a.run.app",
 ]){
   test("staging target fails closed on unreviewable URL: "+malicious,()=>{
     assert.throws(()=>boot({environment:"staging",stagingOrigin:malicious}),
@@ -288,4 +289,17 @@ test("only approved /v1 routes can make authenticated requests and binary downlo
   assert.equal(app.requests[1][0],origin+"/v1/runs/123/artifacts/img");
   assert.equal(new Headers(app.requests[0][1].headers).get("Authorization"),"Bearer fake-token");
   assert.equal(new Headers(app.requests[1][1].headers).get("Authorization"),"Bearer fake-token");
+});
+
+
+test("release candidate uses exactly the verified Cloud Run production origin", async()=>{
+  const app=boot({environment:"production"});
+  const expected="https://mimo-backend-git-hhe6zssqxa-ew.a.run.app";
+  const user={uid:"admin",email:"admin@example.test",getIdToken:async()=>"only-for-approved-service"};
+  app.auth.currentUser=user;
+  await app.handlers.change(user);
+  assert.equal(app.scope.window.MimoCloud.apiOrigin,expected);
+  assert.equal(app.requests.length,1);
+  assert.equal(app.requests[0][0],expected+"/v1/me");
+  assert.equal(new Headers(app.requests[0][1].headers).get("Authorization"),"Bearer only-for-approved-service");
 });
