@@ -70,13 +70,15 @@
    try{
      const blob=await MimoCloud.requestBlob("/v1/compiler/"+format,{method:"POST",body:format==="png"?{source,dpi}:{source}});
      if(blob.type!==(format==="pdf"?"application/pdf":"image/png"))throw Error("Compiler returned an unexpected output type.");
+     if(format==="png" && !window.MimoPngResolution)throw Error("PNG resolution verifier is unavailable. Refresh TikZ Lab.");
+     const pngMeta=format==="png"?await window.MimoPngResolution.verify(blob,dpi):null;
      lastUrl=URL.createObjectURL(blob);lastFormat=format;
      $("tikzPreview").hidden=format!=="pdf";
      $("tikzImagePreview").hidden=format!=="png";
      if(format==="png")$("tikzImagePreview").src=lastUrl;
      else $("tikzPreview").src=lastUrl;
      $("downloadTikz").disabled=false;
-     note("Compilation complete. "+format.toUpperCase()+(format==="png"?" at "+dpi+" DPI":"")+" is ready to preview or download.");
+     note("Compilation complete. "+format.toUpperCase()+(format==="png"?" at verified "+dpi+" DPI ("+pngMeta.width+" × "+pngMeta.height+" px)":"")+" is ready to preview or download.");
    }catch(e){note("Compilation failed: "+e.message,true)}
    finally{compiling=false;for(const choice of outputChoices)$("tikzChoice"+choice.id).disabled=false;$("compileTikz").disabled=!active}
  });
