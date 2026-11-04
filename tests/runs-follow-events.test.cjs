@@ -72,10 +72,9 @@ test("following does only GET status polling and stops at terminal without provi
  const process=tick();
  assert.equal(h.requests[1].path,"/v1/runs/a");
  h.requests[1].resolve({id:"a",status:"completed"});
- await Promise.resolve();await Promise.resolve();
- if(h.requests[2]){
-  h.requests[2].resolve(h.fixture("a",[{seq:1,type:"run.completed"}],"completed"));
- }
+ for(let n=0;n<20&&!h.requests[2];n++)await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(h.requests.length,3,"terminal status should refresh the selected run once");
+ h.requests[2].resolve(h.fixture("a",[{seq:1,type:"run.completed"}],"completed"));
  await process;
  assert.equal(h.$("followRun").checked,false);
  assert.equal(h.timers.size,0);
