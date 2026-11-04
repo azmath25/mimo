@@ -12,16 +12,28 @@
  }
  function renderPolicies(){
    const html=policies.map(p=>{
-     const amount=p.scope==="model"?usage.find(m=>m.model_id===p.scope_id)?.total_usd||0:p.scope==="project"?projectUsage.find(m=>m.project_id===p.scope_id)?.total_usd||0:usage.reduce((a,m)=>a+Number(m.total_usd||0),0);
-     const fraction=p.hard_usd>0?Math.min(100,Math.max(0,100*amount/p.hard_usd)):100;
+     const period=p.period||"lifetime",mode=p.mode||"hard";
+     const canUseLifetime=period==="lifetime"&&["global","model","project"].includes(p.scope);
+     const amount=p.scope==="model"?usage.find(m=>m.model_id===p.scope_id)?.total_usd||0:
+       p.scope==="project"?projectUsage.find(m=>m.project_id===p.scope_id)?.total_usd||0:
+       usage.reduce((a,m)=>a+Number(m.total_usd||0),0);
+     const fraction=canUseLifetime&&p.hard_usd>0?
+       Math.min(100,Math.max(0,100*amount/p.hard_usd)):null;
+     const info=canUseLifetime?
+       MimoSite.currency(amount)+" recorded of "+MimoSite.currency(p.hard_usd):
+       "Window usage is in the on-demand cost report";
      return '<article class="mg-row"><div class="mg-row-body"><strong>'+
-       (p.scope==="global"?"Global spending limit":(p.scope==="project"?"Project: ":"Model: ")+safe()(p.scope_id))+
-       ' <span class="mg-pill '+(fraction>=100?'bad':fraction>=80?'warn':'good')+'">'+Math.round(fraction)+'% used</span></strong>'+
-       '<small>'+MimoSite.currency(amount)+' of '+MimoSite.currency(p.hard_usd)+' hard limit'+(Number(p.soft_usd)>0?' · '+MimoSite.currency(p.soft_usd)+' soft warning':'')+'</small>'+
-       '<div class="mg-progress"><span style="width:'+fraction+'%"></span></div></div></article>';
+       escPolicyTitle(p)+' · '+safe()(period)+" · "+safe()(mode)+
+       '</strong><small>'+info+' · threshold '+MimoSite.currency(p.hard_usd)+
+       ' · soft '+MimoSite.currency(p.soft_usd)+'</small>'+
+       (fraction===null?'':'<div class="mg-progress"><span style="width:'+fraction+'%"></span></div>')+
+       '</div></article>';
    }).join("");
-   $("policyList").innerHTML=html||'<div class="mg-empty">No policies yet. Configure a global limit before enabling expensive providers.</div>';
+   $("policyList").innerHTML=html||'<div class="mg-empty">No spending limits configured.</div>';
    $("totalPolicies").textContent=policies.length;
+ }
+ function escPolicyTitle(p){
+   return p.scope==="global"?"Global":safe()(p.scope)+": "+safe()(p.scope_id);
  }
  function renderUsage(){
    const total=usage.reduce((sum,m)=>sum+Number(m.total_usd||0),0);
@@ -96,19 +108,25 @@
  $("budgetScope").addEventListener("change",()=>{
    $("budgetModelWrap").hidden=$("budgetScope").value!=="model";
    $("budgetProjectWrap").hidden=$("budgetScope").value!=="project";
+   $("budgetCustomWrap").hidden=!["workflow","run"].includes($("budgetScope").value);
  });
  $("budgetForm").addEventListener("submit",async e=>{
    e.preventDefault();
-   const scope=$("budgetScope").value,scopeId=scope==="model"?$("budgetModel").value:scope==="project"?$("budgetProject").value:"";
+   const scope=$("budgetScope").value,
+     scopeId=scope==="model"?$("budgetModel").value:
+       scope==="project"?$("budgetProject").value:
+       ["workflow","run"].includes(scope)?$("budgetCustom").value.trim():"";
+   const period=$("budgetPeriod").value,mode=$("budgetMode").value;
    const hard=Number($("budgetHard").value),soft=Number($("budgetSoft").value);
    if(!Number.isFinite(hard)||hard<0||!Number.isFinite(soft)||soft<0||soft>hard){
      info("Enter a nonnegative hard limit (zero pauses calls) and a soft limit no higher than it.",true);return;
    }
    if(scope==="model"&&!scopeId){info("Select a registered model.",true);return}
    if(scope==="project"&&!scopeId){info("Select an external API project.",true);return}
+   if(["workflow","run"].includes(scope)&&!scopeId){info("Enter an exact workflow or run ID.",true);return}
    $("saveBudget").disabled=true;
    try{
-     await MimoSite.api("/v1/budgets",{method:"POST",body:{scope,scope_id:scopeId,hard_usd:hard,soft_usd:soft}});
+     await MimoSite.api("/v1/budgets",{method:"POST",body:{scope,scope_id:scopeId,hard_usd:hard,soft_usd:soft,period,mode}});
      await refresh();info("Spending policy saved.");
    }catch(error){info(error.message,true)}finally{$("saveBudget").disabled=false}
  });
