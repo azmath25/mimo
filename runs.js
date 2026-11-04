@@ -4,9 +4,15 @@
 const $=id=>document.getElementById(id),safe=v=>MimoSite.safe(v),api=(p,o)=>MimoSite.api(p,o);
 let runs=[],selected=null,offset=0,loading=false,busy=false;
 let listEpoch=0,selectionEpoch=0;
+let eventRows=[],eventCursor=0,eventsBusy=false;
+let followTimer=null,followPending=false,followTarget=null,followDeadline=0;
+const ACTIVE_STATUSES=new Set(["started","queued","running","dispatch_failed"]);
 const note=(text,error=false)=>MimoSite.notice("runsFeedback",text,error);
 function serialize(x){try{return JSON.stringify(x,null,2)}catch{return String(x)}}
 function details(row){return safe(row.workflow_id)+" · v"+safe(row.version)+" · "+safe(MimoSite.date(row.created_at))}
+function renderEventRows(items){
+ return items.map(e=>'<article class="mg-row"><div class="mg-row-body"><strong>#'+safe(e.seq)+' · '+safe(e.type)+'</strong><small>'+safe(MimoSite.date(e.created_at))+'</small><details><summary>Event metadata</summary><pre class="mg-pre">'+safe(serialize(e.payload))+'</pre></details></div></article>').join("");
+}
 function rowHtml(r){return '<article class="mg-row" data-run="'+safe(r.id)+'"><div class="mg-row-body"><strong>'+safe(r.workflow_id)+
  ' <span class="mg-pill">'+safe(r.status)+'</span></strong><small>'+details(r)+'</small><small>'+safe(r.id)+'</small></div><div class="mg-row-actions"><button class="mg-btn small" data-action="open">Inspect</button></div></article>'}
 async function list(reset=true){
@@ -33,6 +39,8 @@ async function choose(id){
  if(!id)return;
  selected=id;
  const epoch=++selectionEpoch;
+ eventRows=[];eventCursor=0;
+ $("loadMoreEvents").disabled=true;
  // Never leave buttons for the previous run actionable while a new run loads.
  $("runRefresh").disabled=true;
  $("runResume").disabled=true;
@@ -63,8 +71,12 @@ async function choose(id){
     (["failed","completed","interrupted"].includes(r.status)?'<button class="mg-btn small" data-action="retry">Retry from here</button>':'')+
     ((c.result?.content?.object_key||c.result?.images?.length)?'<button class="mg-btn small" data-action="artifact">Download artifact</button>':'')+
     '</div></article>').join(""):'<div class="mg-empty">No checkpoints yet.</div>';
-  const events=data.events||[];
-  $("eventList").innerHTML=events.length?events.map(e=>'<article class="mg-row"><div class="mg-row-body"><strong>#'+safe(e.seq)+' · '+safe(e.type)+'</strong><small>'+safe(MimoSite.date(e.created_at))+'</small><details><summary>Event metadata</summary><pre class="mg-pre">'+safe(serialize(e.payload))+'</pre></details></div></article>').join(""):'<div class="mg-empty">No events yet.</div>';
+  const events=Array.isArray(data.events)?data.events:[];
+  eventRows=events;
+  eventCursor=events.length?Number(events[events.length-1].seq)||0:0;
+  $("eventList").innerHTML=events.length?renderEventRows(events):'<div class="mg-empty">No events yet.</div>';
+  $("loadMoreEvents").disabled=events.length<200;
+  $("eventCount").textContent=events.length+" events loaded"+(events.length===200?" · more may be available":"");
   history.replaceState(null,"","?run="+encodeURIComponent(id));
   note("Run loaded from persistent backend history.");
  }catch(e){if(epoch===selectionEpoch&&selected===id)note("Cannot inspect run: "+e.message,true)}
@@ -76,6 +88,75 @@ async function action(command){
  try{await api("/v1/runs/"+encodeURIComponent(selected)+"/"+command,{method:"POST"});await choose(selected);await list()}
  catch(e){note(e.message,true)}finally{busy=false}
 }
+// The timeline endpoint deliberately pages at 200 events by default.
+async function loadMoreEvents(){
+ if(!selected||eventsBusy||!eventCursor||$("loadMoreEvents").disabled)return;
+ const id=selected,epoch=selectionEpoch,start=eventCursor;
+ eventsBusy=true;$("loadMoreEvents").disabled=true;
+ try{
+  const data=await api("/v1/runs/"+encodeURIComponent(id)+"/timeline?after="+start+"&limit=200");
+  if(id!==selected||epoch!==selectionEpoch)return;
+  const batch=Array.isArray(data.events)?data.events:[];
+  // Reject stale/duplicate pages to avoid endlessly rendering the same records.
+  const fresh=batch.filter(e=>Number.isSafeInteger(Number(e.seq))&&Number(e.seq)>start);
+  if(fresh.length){
+   eventRows.push(...fresh);
+   eventCursor=Number(fresh[fresh.length-1].seq);
+   $("eventList").innerHTML=renderEventRows(eventRows);
+  }
+  $("eventCount").textContent=eventRows.length+" events loaded"+
+    (batch.length===200&&fresh.length?" · more may be available":"");
+  $("loadMoreEvents").disabled=batch.length<200||fresh.length===0;
+ }catch(error){
+  if(id===selected&&epoch===selectionEpoch)note("Cannot load more events: "+error.message,true);
+  if(id===selected&&epoch===selectionEpoch)$("loadMoreEvents").disabled=false;
+ }finally{eventsBusy=false}
+}
+
+// An opt-in, bounded status-only read avoids repeating expensive timeline
+// requests or triggering provider calls. Manual Reload inspects checkpoints.
+function stopFollow(message){
+ if(followTimer!==null){clearInterval(followTimer);followTimer=null;}
+ followTarget=null;followPending=false;
+ if($("followRun"))$("followRun").checked=false;
+ if(message)note(message);
+}
+function startFollow(){
+ if(followTimer!==null){clearInterval(followTimer);followTimer=null;}
+ const toggle=$("followRun");
+ if(!toggle?.checked||!selected||!MimoSite.requireCloud())return;
+ followTarget=selected;
+ followDeadline=Date.now()+10*60*1000;
+ const target=followTarget;
+ followTimer=setInterval(async()=>{
+  if(followPending||busy||selected!==target)return;
+  if(!MimoSite.requireCloud()){stopFollow();return;}
+  if(typeof document!=="undefined"&&document.hidden)return;
+  if(Date.now()>followDeadline){stopFollow("Live following stopped after 10 minutes. Re-enable to continue.");return;}
+  followPending=true;
+  try{
+   const status=await api("/v1/runs/"+encodeURIComponent(target));
+   if(target!==selected||!MimoSite.requireCloud()||!toggle.checked)return;
+   if(status?.status && status.status!==$("runBadge").textContent){
+    await choose(target);
+   }
+   if(status?.status&&!ACTIVE_STATUSES.has(status.status)){
+    stopFollow("Run is "+status.status+". Follow stopped; event history remains available.");
+   }
+  }catch(error){
+   if(target===selected)note("Status follow failed: "+error.message+" (manual Reload is available)",true);
+  }finally{followPending=false}
+ },15000);
+}
+$("loadMoreEvents").addEventListener("click",loadMoreEvents);
+$("followRun").addEventListener("change",()=>{
+ if($("followRun").checked)startFollow();
+ else stopFollow();
+});
+window.addEventListener("mimo:auth-changed",()=>{
+ if(!MimoSite.requireCloud()&&followTimer!==null)stopFollow();
+});
+
 async function download(id,node){
  try{
   const blob=await MimoCloud.requestBlob("/v1/runs/"+encodeURIComponent(id)+"/artifacts/"+encodeURIComponent(node));
@@ -109,7 +190,7 @@ $("nodeTaskList").addEventListener("click",async e=>{
   }catch(error){note(error.message,true)}
   finally{busy=false;button.disabled=false}
 });
-$("runsList").addEventListener("click",e=>{const r=e.target.closest("[data-run]");if(r)choose(r.dataset.run)});
+$("runsList").addEventListener("click",e=>{const r=e.target.closest("[data-run]");if(r){choose(r.dataset.run);if($("followRun").checked)startFollow()}});
 $("checkpointList").addEventListener("click",async e=>{
  const btn=e.target.closest("[data-action]");if(!btn||!selected)return;
  const node=btn.closest("[data-node]")?.dataset.node;if(!node)return;
