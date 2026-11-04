@@ -62,7 +62,7 @@ test("TikZ Lab labels and previews follow PDF/PNG selection",async()=>{
   function element(id){
     if(!elements.has(id)){
       elements.set(id,{
-        value:id==="tikzFormat"?"pdf":id==="tikzSource"?"\\\\documentclass{standalone}":"", 
+        value:id==="tikzFormat"?"pdf":id==="tikzDpi"?"300":id==="tikzSource"?"\\\\documentclass{standalone}":"", 
         textContent:"",
         disabled:id==="compileTikz"||id==="downloadTikz",
         hidden:false,
