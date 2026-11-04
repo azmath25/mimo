@@ -59,6 +59,7 @@ test("TikZ Lab labels and previews follow PDF/PNG selection",async()=>{
   let readyCallback;
   let downloadedFile="";
   let revoked=0;
+  let lastRequest=null;
   function element(id){
     if(!elements.has(id)){
       elements.set(id,{
@@ -68,6 +69,8 @@ test("TikZ Lab labels and previews follow PDF/PNG selection",async()=>{
         hidden:false,
         handlers:{},
         classList:{toggle(){}},
+        attributes:{},
+        setAttribute(name,value){this.attributes[name]=value},
         removeAttribute(name){delete this[name]},
         addEventListener(name,fn){this.handlers[name]=fn}
       });
@@ -85,7 +88,8 @@ test("TikZ Lab labels and previews follow PDF/PNG selection",async()=>{
   };
   const cloud={
     authorized:true,
-    async requestBlob(path){
+    async requestBlob(path,opts){
+      lastRequest={path,opts};
       return {type:path.endsWith("/png")?"image/png":"application/pdf"};
     }
   };
@@ -108,8 +112,15 @@ test("TikZ Lab labels and previews follow PDF/PNG selection",async()=>{
   await readyCallback();
   assert.equal(element("compileTikz").disabled,false);
 
-  element("tikzFormat").value="png";
-  element("tikzFormat").handlers.change();
+  for (const dpi of [160,240,300,450,600]) {
+    element("tikzChoicePng"+dpi).handlers.click();
+    assert.equal(element("tikzFormat").value,"png");
+    assert.equal(element("tikzDpi").value,String(dpi));
+    assert.equal(element("tikzChoicePng"+dpi).attributes["aria-pressed"],"true");
+    await element("compileTikz").handlers.click();
+    assert.equal(lastRequest.path,"/v1/compiler/png");
+    assert.equal(lastRequest.opts.body.dpi,dpi);
+  }
   assert.equal(element("compileTikz").textContent,"Compile PNG");
   assert.equal(element("downloadTikz").textContent,"Download PNG");
   assert.equal(element("tikzPreviewTitle").textContent,"PNG preview");
@@ -121,14 +132,16 @@ test("TikZ Lab labels and previews follow PDF/PNG selection",async()=>{
   element("downloadTikz").handlers.click();
   assert.equal(downloadedFile,"mimo-tikz.png");
 
-  element("tikzFormat").value="pdf";
-  element("tikzFormat").handlers.change();
+  element("tikzChoicePdf").handlers.click();
+  assert.equal(element("tikzChoicePdf").attributes["aria-pressed"],"true");
   assert.equal(element("compileTikz").textContent,"Compile PDF");
   assert.equal(element("downloadTikz").textContent,"Download PDF");
   assert.equal(element("tikzPreviewTitle").textContent,"PDF preview");
   assert.equal(element("downloadTikz").disabled,true);
   assert.ok(revoked>0);
   await element("compileTikz").handlers.click();
+  assert.equal(lastRequest.path,"/v1/compiler/pdf");
+  assert.equal(lastRequest.opts.body.dpi,undefined);
   element("downloadTikz").handlers.click();
   assert.equal(downloadedFile,"mimo-tikz.pdf");
   assert.equal(element("tikzPreview").hidden,false);
