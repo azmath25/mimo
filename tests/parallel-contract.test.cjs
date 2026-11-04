@@ -27,3 +27,13 @@ test("Studio exposes and persists parallel mode without forcing old workflows",(
   assert.match(studio,/state\.parallelExecution=r\.parallelExecution===true/);
   assert.match(studio,/state\.parallelExecution===true\|\|/);
 });
+
+test("parallel graph is blocked before a Studio API write when its dispatcher is disabled",()=>{
+  const workflow={...graph(),parallelExecution:true};
+  const unsupported=bridge.runIssues(workflow,[],{run_api:{background_configured:false}});
+  assert.ok(unsupported.some(x=>/Studio background dispatch/.test(x)));
+  const unverified=bridge.runIssues(workflow,[],{});
+  assert.ok(unverified.some(x=>/Studio background dispatch/.test(x)));
+  const allowed=bridge.runIssues(workflow,[],{run_api:{background_configured:true}});
+  assert.ok(!allowed.some(x=>/Studio background dispatch/.test(x)));
+});
