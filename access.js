@@ -77,7 +77,7 @@
   }
   function getOrigin(){
     const studioOrigin=window.MimoCloud?.apiOrigin;
-    if(!studioOrigin) return {url:null,reason:"Staging Studio API has not been approved yet."};
+    if(!studioOrigin) return {url:null,reason:"Studio API origin is not configured."};
     const value=$("executionOrigin").value.trim().replace(/\/+$/,"");
     if(!value)return {url:null,reason:"Execution service not configured"};
     try{
