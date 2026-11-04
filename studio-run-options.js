@@ -121,18 +121,19 @@
       const current = currentMode();
       for (const choice of options) {
         choice.checked = choice.value === current;
-        choice.disabled = choice.value === "parallel" ? !supported.parallel :
-                          choice.value === "background" ? !supported.background : false;
+        // Parallel is a saved workflow design choice, even when the current
+        // Studio cannot execute it yet. Cloud run still fails closed in Check.
+        choice.disabled = choice.value === "background" ? !supported.background : false;
       }
       label.textContent = descriptions[current];
       if (!checkedCloud && !win.MimoCloud?.authorized)
         show("Sign in to check background/parallel availability.", "info");
       else if (!checkedCloud)
         show("Checking Studio Cloud Tasks capabilities…", "info");
-      else if (!supported.background)
-        show("Background and parallel runs require Cloud Tasks on the Studio service. Standard mode remains available.", "warning");
       else if (current === "parallel" && !supported.parallel)
-        show("This Studio revision cannot schedule parallel nodes. Choose Standard or Background.", "warning");
+        show("Parallel mode is saved in this workflow, but Cloud Run is blocked until Studio background dispatch is enabled. Open Check for details.", "warning");
+      else if (!supported.background)
+        show("Background execution needs Cloud Tasks on Studio. You can still design and save parallel workflows, but cannot run them yet.", "warning");
       else
         show(current === "background"
           ? "Background is selected for runs in this session; the workflow stays sequential."
@@ -145,8 +146,7 @@
     function select(mode) {
       const current = currentMode();
       if (mode === current) return sync();
-      if (mode === "parallel" && !supported.parallel ||
-          mode === "background" && !supported.background) {
+      if (mode === "background" && !supported.background) {
         show("Cloud Tasks is not enabled on Studio. Recheck cloud after the backend is configured.", "warning");
         return sync();
       }
