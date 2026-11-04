@@ -45,15 +45,54 @@
 <div class="mg-section"><h2>Create or update a spending policy</h2></div>
 <div class="mg-card"><form id="budgetForm">
   <div class="mg-fields">
-    <div class="mg-field"><label for="budgetScope">Applies to</label><select id="budgetScope"><option value="global">All models (global)</option><option value="model">One registered model</option><option value="project">One external API project</option></select></div>
+    <div class="mg-field"><label for="budgetScope">Applies to</label><select id="budgetScope"><option value="global">All models (global)</option><option value="model">One registered model</option><option value="project">One external API project</option><option value="workflow">One workflow ID</option><option value="run">One run ID</option></select></div>
     <div class="mg-field" id="budgetModelWrap" hidden><label for="budgetModel">Model ID</label><select id="budgetModel"></select></div><div class="mg-field" id="budgetProjectWrap" hidden><label for="budgetProject">API project</label><select id="budgetProject"></select></div>
+    <div class="mg-field" id="budgetCustomWrap" hidden><label for="budgetCustom">Workflow or run ID</label><input id="budgetCustom" maxlength="64" autocomplete="off" placeholder="Exact workflow/run ID"></div>
+    <div class="mg-field"><label for="budgetPeriod">Reset period</label><select id="budgetPeriod"><option value="lifetime">Lifetime (cumulative)</option><option value="daily">Daily, UTC</option><option value="monthly">Monthly, UTC</option></select></div>
+    <div class="mg-field"><label for="budgetMode">Policy behavior</label><select id="budgetMode"><option value="hard">Hard cap</option><option value="warn">Warn (do not stop)</option><option value="monitor">Monitor (information only)</option><option value="approval">Require run-specific approval above cap</option></select></div>
     <div class="mg-field"><label for="budgetHard">Hard threshold (USD)</label><input id="budgetHard" required type="number" min="0" step="0.01" placeholder="10.00"></div>
     <div class="mg-field"><label for="budgetSoft">Warning threshold (USD)</label><input id="budgetSoft" required type="number" min="0" step="0.01" value="0"></div>
   </div>
   <div class="mg-actions"><button class="mg-btn primary" type="submit" id="saveBudget">Save policy</button></div>
-  <p class="mg-hint">Saving the same scope and model ID updates the existing policy. A hard limit of $0 pauses new calls. Soft limits are informational; active estimated reservations also count toward admission.</p>
+  <p class="mg-hint">Saving the same scope, ID and UTC period updates that policy. Lifetime limits never reset. Warn/monitor modes report cost without blocking. Hard/approval modes reject missing or unverified $0 prices. Approval is granted for one run only and never overrides a separate hard policy.</p>
   <div class="mg-feedback" id="budgetFeedback" role="status" aria-live="polite"></div>
 </form></div>
+<section class="mg-section" aria-labelledby="costCenterTitle"><h2 id="costCenterTitle">Complete cost controls</h2><p class="mg-hint">Optional on-demand checks: no extra provider calls, and no automatic cost-data requests when opening this page.</p></section>
+<details class="mg-card" style="margin-bottom:12px"><summary style="cursor:pointer;font-weight:700">Price integrity · Is a model truly free?</summary>
+  <p class="mg-hint">Mimo cannot treat a manually entered $0 as verified-free. Inspect registered models and correct the source and prices in <a href="./models.html">AI models</a> before running protected workflows.</p>
+  <button class="mg-btn" type="button" id="loadCostPrices">Check model pricing</button>
+  <div id="costPrices" class="mg-list" aria-live="polite"></div>
+</details>
+<details class="mg-card" style="margin-bottom:12px"><summary style="cursor:pointer;font-weight:700">Costs by workflow, run and block</summary>
+  <p class="mg-hint">Figures are from Mimo's internal provider ledger, not your provider's invoice; unknown historical prices and Google Cloud/Neon costs are excluded.</p>
+  <div class="mg-actions"><label for="costPeriod">Period</label><select id="costPeriod" class="mg-btn"><option value="daily">Today (UTC)</option><option value="monthly" selected>This month (UTC)</option><option value="lifetime">Lifetime</option></select><button id="loadCostReport" class="mg-btn" type="button">Load cost report</button></div>
+  <div id="costReport" class="mg-list" aria-live="polite"></div>
+</details>
+<details class="mg-card" style="margin-bottom:12px"><summary style="cursor:pointer;font-weight:700">Expense alerts</summary>
+  <p class="mg-hint">A soft threshold records an alert when a reserved call crosses it. Alerts here are displayed on request; no email or push notification is installed.</p>
+  <button id="loadCostAlerts" class="mg-btn" type="button">Load recent alerts</button>
+  <div id="costAlerts" class="mg-list" aria-live="polite"></div>
+</details>
+<details class="mg-card" style="margin-bottom:12px"><summary style="cursor:pointer;font-weight:700">Approve one expensive run</summary>
+  <p class="mg-hint">For a policy in Approval mode, first inspect the failed run and the provider cost estimate. An approval adds a bounded amount only to that run and expires automatically. Approval itself makes no provider call.</p>
+  <form id="costApproveForm" class="mg-fields">
+    <div class="mg-field"><label for="costApproveRun">Exact run ID</label><input id="costApproveRun" maxlength="64" required autocomplete="off"></div>
+    <div class="mg-field"><label for="costApprovePolicy">Policy ID from run error</label><input id="costApprovePolicy" maxlength="64" required autocomplete="off"></div>
+    <div class="mg-field"><label for="costApproveExtra">Additional USD allowed</label><input id="costApproveExtra" required type="number" min="0.000001" max="100000" step="0.000001"></div>
+    <div class="mg-field"><label for="costApproveExpiry">Approval expires in hours</label><input id="costApproveExpiry" type="number" value="24" min="1" max="168" step="1" required></div>
+    <div class="mg-field span"><label for="costApproveReason">Approval reason (audited)</label><textarea id="costApproveReason" rows="2" minlength="12" maxlength="500" required></textarea></div>
+    <div class="mg-actions"><button class="mg-btn primary" type="submit">Approve additional spending</button></div>
+  </form><div id="costApproveStatus" class="mg-feedback" role="status"></div>
+  <p class="mg-hint">After approval, resume the paused/failed run explicitly from <a href="./runs.html">Runs &amp; reviews</a>; it is not executed automatically.</p>
+</details>
+<details class="mg-card" style="margin-bottom:12px"><summary style="cursor:pointer;font-weight:700">External API project concurrency</summary>
+  <p class="mg-hint">Limit simultaneous active runs from a project. Combined with a project daily/monthly cost policy, this prevents runaway API clients. A cap does not replace provider RPM limits.</p>
+  <form id="costProjectCapForm" class="mg-fields">
+    <div class="mg-field"><label for="costProjectCapId">API project</label><select id="costProjectCapId"></select></div>
+    <div class="mg-field"><label for="costProjectCap">Max active runs (1–100)</label><input id="costProjectCap" type="number" value="2" min="1" max="100" required></div>
+    <div class="mg-actions"><button class="mg-btn primary" type="submit">Save project cap</button><button class="mg-btn" type="button" id="loadCostProjectCaps">Load configured caps</button></div>
+  </form><div id="costProjectCapStatus" class="mg-feedback" role="status"></div><div id="costProjectCaps" class="mg-list"></div>
+</details>
 <div class="mg-section"><h2>Usage by model</h2></div>
 <div id="usageByModel" class="mg-grid two"><div class="mg-empty">Loading model usage…</div></div>
 <div class="mg-section"><h2>Usage by external project</h2></div><div id="usageByProject" class="mg-grid two"><div class="mg-empty">Loading project attribution…</div></div>
@@ -80,4 +119,4 @@
 <div id="reconciliationAudit" class="mg-list"><div class="mg-empty">Loading reconciliation history…</div></div>
 <div class="mg-section"><h2>Recent provider requests</h2><span class="mg-hint">Up to 30 recorded calls</span></div>
 <div class="mg-card" style="overflow-x:auto"><table class="mg-table"><thead><tr><th>Model</th><th>Input tokens</th><th>Output tokens</th><th>Cost</th></tr></thead><tbody id="usageCalls"><tr><td colspan="4">Loading…</td></tr></tbody></table></div>
-</div></main><script src="./site.js"></script><script src="./usage-capacity-math.js"></script><script src="./usage-capacity.js"></script><script src="./budgets.js"></script><script type="module" src="./cloud-auth.js"></script></body></html>
+</div></main><script src="./site.js"></script><script src="./usage-capacity-math.js"></script><script src="./usage-capacity.js"></script><script src="./budgets.js"></script><script src="./cost-controls.js"></script><script type="module" src="./cloud-auth.js"></script></body></html>
