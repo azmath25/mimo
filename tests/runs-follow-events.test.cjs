@@ -12,6 +12,7 @@ function boot(){
  }
  const context={
   $,Date,Set,Number,String,JSON,encodeURIComponent,URLSearchParams,
+  safe:x=>String(x??"").replaceAll("<","&lt;").replaceAll(">","&gt;"),
   setInterval(fn,ms){assert.equal(ms,15000);const id=++timerCount;timers.set(id,fn);return id},
   clearInterval(id){timers.delete(id)},
   MimoSite:{safe:x=>String(x??"").replaceAll("<","&lt;").replaceAll(">","&gt;"),
