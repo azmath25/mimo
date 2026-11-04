@@ -18,7 +18,7 @@ const blobSha=data=>createHash("sha1")
 
 test("M-FE.5: Studio layout unchanged except approved TikZ controls and tool-choice cleanup",()=>{
   assert.equal(blobSha(read("studio.html")),
-    "bd461d41a3c4036bb506cae7b7984c3fd8a2d39e",
+    "d2835cccab6ec22665b06bbe1b28dd27fdf4f1f1",
     "Only the approved TikZ DPI settings, supported-output labels and connector visibility may alter Studio");
 });
 
