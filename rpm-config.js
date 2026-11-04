@@ -24,7 +24,7 @@
             : "Orphaned identity — model endpoint or credential reference changed";
           return '<article class="mg-row"><div class="mg-row-body"><strong>' +
             safe(p.remote_model_id) + ' · ' + safe(p.max_requests_per_minute) +
-            ' RPM <span class="mg-pill warn">Not enforced</span></strong>' +
+            ' RPM <span class="mg-pill ' + (p.enforced === true ? 'good' : 'warn') + '">' + (p.enforced === true ? 'Enforced' : 'Not enforced') + '</span></strong>' +
             '<small class="mg-break">' + safe(p.provider) + ' · ' +
             safe(p.endpoint) + ' · credential reference ' + safe(p.secret_ref) +
             '</small><small>' + status + '</small></div>' +
@@ -53,7 +53,7 @@
         ? String(policy.max_requests_per_minute) : "";
       $("rpmPolicyIdentity").textContent =
         (policy.configured ? "Configured: " + policy.max_requests_per_minute +
-          " RPM (NOT enforced yet)." : "No RPM policy configured.") +
+          " RPM (" + (policy.enforced === true ? "enforced" : "NOT enforced") + ")." : "No RPM policy configured — no RPM cap for this model.") +
         " Shared aliases: " + (policy.model_ids || []).join(", ") +
         ". Credential reference: " + policy.secret_ref + ".";
     } catch (error) {
@@ -100,7 +100,7 @@
       const result = await api("/v1/models/" + encodeURIComponent(id) +
         "/rate-limit", {method: "PUT", body: {max_requests_per_minute: Number(value)}});
       notify("Saved " + result.max_requests_per_minute +
-        " RPM for the shared provider/model/key reference. This setting is NOT enforced yet.");
+        " RPM for the shared provider/model/key reference. " + (result.enforced === true ? "Enforcement active on the backend. Keep a separate spending budget." : "Backend did not confirm enforcement; do not rely on this cap."));
       await refresh();
     } catch (error) { notify(error.message, true); }
     finally { setBusy(false); }
@@ -115,7 +115,7 @@
       await api("/v1/models/" + encodeURIComponent(id) +
         "/rate-limit", {method: "DELETE"});
       await refresh();
-      notify("Shared RPM configuration removed. No provider throttling was changed.");
+      notify("Shared RPM policy removed; calls with this model identity no longer have this RPM cap.");
     } catch (error) { notify(error.message, true); }
     finally { setBusy(false); }
   });
@@ -130,7 +130,7 @@
       await api("/v1/models/rate-limits/" + encodeURIComponent(identity),
         {method: "DELETE"});
       await refresh();
-      notify("Orphaned RPM configuration deleted.");
+      notify("Orphaned RPM policy deleted (provider keys unchanged).");
     } catch (error) { notify(error.message, true); }
     finally { setBusy(false); }
   });
