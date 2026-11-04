@@ -62,6 +62,14 @@
     document.body.append(gate);
   }
   // Keep authentication selectors identical for the separate SPA-free pages.
+  // Add a small execution-mode surface without modifying the frozen editor.
+  // The enhancement reuses Studio's existing draft/save and readiness checks.
+  if(current==="studio"){
+    const controls=document.createElement("script");
+    controls.src="./studio-run-options.js";
+    controls.async=true;
+    document.body.append(controls);
+  }
   window.MimoSite={
     pages,
     safe(value){return String(value??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;") },
