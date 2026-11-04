@@ -16,10 +16,10 @@ const text=rel=>read(rel).toString("utf8");
 const blobSha=data=>createHash("sha1")
  .update(Buffer.from("blob "+data.length+"\0")).update(data).digest("hex");
 
-test("M-FE.5: Studio layout unchanged except approved TikZ controls and tool-choice cleanup",()=>{
+test("M-FE.5: Studio layout unchanged except approved TikZ, tool-choice and M-COST controls",()=>{
   assert.equal(blobSha(read("studio.html")),
-    "d2835cccab6ec22665b06bbe1b28dd27fdf4f1f1",
-    "Only the approved TikZ DPI settings, supported-output labels and connector visibility may alter Studio");
+    "75887d5bb14528c217d6b05fa3db1c51c56f044e",
+    "Only the approved TikZ, connector and M-COST UI controls may alter Studio");
 });
 
 test("M-FE.5: unchanged Desktop Studio has the same major canvas and controls",()=>{
