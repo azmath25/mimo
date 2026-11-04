@@ -134,7 +134,11 @@
       else if (current === "parallel" && !supported.parallel)
         show("This Studio revision cannot schedule parallel nodes. Choose Standard or Background.", "warning");
       else
-        show("Cloud Tasks ready. Mode is saved in your draft; select Save workflow to keep it in Neon.", "ok");
+        show(current === "background"
+          ? "Background is selected for runs in this session; the workflow stays sequential."
+          : current === "parallel"
+          ? "Parallel mode is in the workflow draft. Select Save workflow to persist it."
+          : "Cloud Tasks is available. Standard mode runs one block at a time.", "ok");
       return current;
     }
 
@@ -155,7 +159,9 @@
         // Explicitly mirror the UI for consistency with later mode switching.
         underlyingBackground.checked = mode !== "standard";
         sync();
-        show("Execution mode set to " + descriptions[mode] + ". Save workflow to persist the draft.", "ok");
+        show(mode === "background"
+          ? "Background selected for this session's runs; it is not a saved workflow property."
+          : "Mode set to " + descriptions[mode] + ". Save workflow to persist this change.", "ok");
       } catch (error) {
         underlyingBackground.checked = previousBackground;
         // The original Save API outputs handler failed; don't blindly overwrite
