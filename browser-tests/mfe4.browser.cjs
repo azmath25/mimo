@@ -213,7 +213,11 @@ for (const width of [1280]) {
         "Run options panel must remain within the viewport at width "+width);
       assert.equal(await p.locator('input[name="mimoExecutionMode"][value="standard"]').isChecked(),true);
       assert.equal(await p.locator('input[name="mimoExecutionMode"][value="background"]').isDisabled(),true);
-      assert.equal(await p.locator('input[name="mimoExecutionMode"][value="parallel"]').isDisabled(),true);
+      assert.equal(await p.locator('input[name="mimoExecutionMode"][value="parallel"]').isDisabled(),false,
+        "Parallel may be selected as a workflow design choice before backend setup");
+      await p.locator('input[name="mimoExecutionMode"][value="parallel"]').check();
+      assert.equal(await p.locator("#parallelExecutionEnabled").isChecked(),true);
+      assert.equal(await p.locator("#exportsDialog").isHidden(),true);
       assert.equal(await p.locator("#exportsDialog").isHidden(),true,
         "Opening Run options must not leave API exports modal visible");
       await p.screenshot({path:path.join(output,"studio-run-options-"+width+".png")});
