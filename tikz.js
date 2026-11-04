@@ -9,6 +9,7 @@
    $("compileTikz").textContent="Compile "+format;
    $("downloadTikz").textContent="Download "+format;
    $("tikzPreviewTitle").textContent=format+" preview";
+   $("tikzDpiRow").hidden=format!=="PNG";
  }
  function note(message,bad=false){
    const target=$("tikzStatus");target.textContent=message;
@@ -40,16 +41,22 @@
    note(active?"Ready to compile "+$("tikzFormat").value.toUpperCase()+".":
      "Sign in and enable the compiler to begin.",!active);
  });
+ $("tikzDpi").addEventListener("change",()=>{
+   freeUrl();note(active?"PNG resolution set to "+$("tikzDpi").value+" DPI. Compile to apply it.":"Compiler not ready.",!active);
+ });
  $("compileTikz").addEventListener("click",async()=>{
    if(!active||!window.MimoCloud?.authorized)return;
    const source=$("tikzSource").value;
    const format=$("tikzFormat").value;
+   const dpi=format==="png"?Number($("tikzDpi").value):null;
+   if(format==="png"&&(!Number.isInteger(dpi)||dpi<72||dpi>600))return note("Choose a PNG DPI between 72 and 600.",true);
    if(!source.trim())return note("Write some TikZ/LaTeX source first.",true);
    $("compileTikz").disabled=true;
    $("tikzFormat").disabled=true;
+   $("tikzDpi").disabled=true;
    freeUrl();note("Compiling via isolated TeX Live worker…");
    try{
-     const blob=await MimoCloud.requestBlob("/v1/compiler/"+format,{method:"POST",body:{source}});
+     const blob=await MimoCloud.requestBlob("/v1/compiler/"+format,{method:"POST",body:format==="png"?{source,dpi}:{source}});
      if(blob.type!==(format==="pdf"?"application/pdf":"image/png"))throw Error("Compiler returned an unexpected output type.");
      lastUrl=URL.createObjectURL(blob);lastFormat=format;
      $("tikzPreview").hidden=format!=="pdf";
@@ -57,9 +64,9 @@
      if(format==="png")$("tikzImagePreview").src=lastUrl;
      else $("tikzPreview").src=lastUrl;
      $("downloadTikz").disabled=false;
-     note("Compilation complete. "+format.toUpperCase()+" is ready to preview or download.");
+     note("Compilation complete. "+format.toUpperCase()+(format==="png"?" at "+dpi+" DPI":"")+" is ready to preview or download.");
    }catch(e){note("Compilation failed: "+e.message,true)}
-   finally{$("tikzFormat").disabled=false;$("compileTikz").disabled=!active}
+   finally{$("tikzFormat").disabled=false;$("tikzDpi").disabled=false;$("compileTikz").disabled=!active}
  });
  $("downloadTikz").addEventListener("click",()=>{
    if(!lastUrl)return;
@@ -67,7 +74,7 @@
    document.body.append(a);a.click();a.remove();
  });
  $("resetTikz").addEventListener("click",()=>{
-   $("tikzSource").value=initial;$("tikzFormat").value="pdf";
+   $("tikzSource").value=initial;$("tikzFormat").value="pdf";$("tikzDpi").value="300";
    freeUrl();syncFormatLabels();note("Example restored.");
  });
  window.addEventListener("beforeunload",freeUrl);
