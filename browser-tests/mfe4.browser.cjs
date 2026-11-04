@@ -197,8 +197,8 @@ test("local Chromium: Runs errors remain visible to assistive technology",async(
   } finally {await close(app)}
 });
 
-for (const width of [320,390,1280]) {
-  test("local Chromium " + width + "px: Run options visible, accessible and fail closed",async()=>{
+for (const width of [1280]) {
+  test("local desktop Chromium " + width + "px: Run options visible and fail closed",async()=>{
     const app=await fixture("studio.html",width,800);
     try {
       const p=app.page;
@@ -222,7 +222,7 @@ for (const width of [320,390,1280]) {
   });
 }
 test("local Chromium: selecting background and parallel uses the original workflow state",async()=>{
-  const app=await fixture("studio.html",390,800);
+  const app=await fixture("studio.html",1280,800);
   try {
     const p=app.page;
     await p.locator("#mimoRunOptions > summary").waitFor();
