@@ -257,11 +257,14 @@ body[data-page="studio"] .mimo-run-sr-only{
    but the new three-mode selector is the only visible control. */
 body[data-page="studio"] .advanced-run-option{display:none!important}
 @media(max-width:640px){
-  body[data-page="studio"] .mimo-run-options-menu{order:0}
+  body[data-page="studio"] .mimo-run-options-menu{order:-1}
   body[data-page="studio"] .mimo-run-options-menu > summary{min-height:40px}
   body[data-page="studio"] .mimo-run-options-panel{
     position:fixed;left:12px;right:12px;top:calc(53px + 112px - 5px);
     width:auto;max-height:calc(100dvh - 178px);overflow-y:auto;
     overscroll-behavior:contain;
   }
+}
+@media(max-width:390px){
+  body[data-page="studio"] .mimo-run-options-menu .mimo-run-mode-label{display:none}
 }
