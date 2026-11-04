@@ -51,7 +51,8 @@ test("M-FE.2 API Access uses only the approved Studio origin rather than a dupli
   assert.match(source,/const studioOrigin=window\.MimoCloud\?\.apiOrigin/);
   assert.match(source,/if\(!studioOrigin\) return \{url:null,reason:/);
   assert.doesNotMatch(source,/mimo-backend-git-[0-9]+\.[a-z0-9-]+\.run\.app/);
-  assert.match(auth,/const ACTIVE_API_ENVIRONMENT = "staging"/);
+  assert.match(auth,/const ACTIVE_API_ENVIRONMENT = "production"/);
+  assert.match(auth,/const APPROVED_PRODUCTION_STUDIO_ORIGIN = "https:\/\/mimo-backend-git-hhe6zssqxa-ew\.a\.run\.app"/);
   assert.match(auth,/const APPROVED_STAGING_STUDIO_ORIGIN = ""/);
   assert.match(auth,/Object\.defineProperty\(cloud, "apiOrigin"/);
   assert.doesNotMatch(auth,/localStorage\.getItem\([^)]*api/i);
