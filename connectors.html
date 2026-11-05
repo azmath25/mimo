@@ -7,7 +7,7 @@
   <section class="mg-hero"><div><span class="mg-eyebrow">Security / External actions</span>
   <h1>Connectors & approvals</h1>
   <p>Install trusted adapters, grant operations to external projects, and approve exact side-effecting requests. Tokens remain in backend Secret Manager; workflow prompts never contain credentials.</p></div>
-  <button class="mg-btn" id="refreshConnectors" type="button">Refresh</button></section>
+  <div class="mg-actions"><a class="mg-btn" href="./rest-connections.html">REST connections</a><button class="mg-btn" id="refreshConnectors" type="button">Refresh</button></div></section>
   <div class="mg-alert warn"><strong>Explicit approval is required for writes.</strong>
   A project grant alone never allows a GitHub issue to be created. Before approving, review the exact request and verify its project and destination repository.
   A timed-out action may already have succeeded remotely; uncertain actions are not retried automatically.</div>

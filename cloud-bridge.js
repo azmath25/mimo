@@ -7,7 +7,7 @@
     const execution = node.execution || (node.type === "condition" ? "condition" : ["tool", "tikz"].includes(node.type) ? "tool" : "ai");
     if (execution === "condition") return "condition";
     if (execution === "tool") return node.toolKind === "tikz" || node.type === "tikz" ? "compiler" :
-      node.toolKind === "github-issue" || node.type === "connector" ? "connector" : "tool";
+      ["github-issue","api-request"].includes(node.toolKind) || node.type === "connector" ? "connector" : "tool";
     return "ai";
   };
   function resolveModel(node, models) {
@@ -74,11 +74,17 @@
           config.response.n = Number(n.imageCount||1);
         }
       } else if (type === "connector") {
+        if(n.toolKind==="api-request") {
+          const rest=root.MimoREST||(typeof require==="function"?require("./api-request.js"):null);
+          if(!rest)throw Error("API Request editor is unavailable.");
+          Object.assign(config,rest.config(n));config.adapter="http_rest";
+        } else {
         config.installation_id = String(n.connectorInstallation || "");
         config.operation = n.connectorOperation === "read_issue" ? "read_issue" : "create_issue";
         config.args = config.operation === "read_issue"
           ? {issue_number:String(n.connectorNumber || "{{inputs.1}}")}
           : {title:String(n.connectorTitle || ""),body:String(n.connectorBody ?? "{{inputs.1}}")};
+        }
       } else if (type === "tool") {
         config.tool = ({uppercase: "upper", lowercase: "lower", trim: "trim", replace: "replace", "json-field": "json_field"})[n.toolKind] || String(n.toolKind || "unsupported");
         config.input = "{{inputs.1}}";
@@ -120,7 +126,10 @@
       prompt: n.config?.prompt || "", model: n.config?.model_id || "",
       maxTokens: n.config?.max_tokens || 1024,
       fallbackModels: asArray(n.config?.fallback_model_ids).join(", "),
-      toolKind: n.type==="compiler" ? "tikz" : n.type==="connector" ? "github-issue" : n.config?.tool === "upper" ? "uppercase" : n.config?.tool === "lower" ? "lowercase" : n.config?.tool || "trim",
+      toolKind: n.type==="compiler" ? "tikz" : n.type==="connector" ? (n.config?.adapter==="http_rest"||!["read_issue","create_issue"].includes(n.config?.operation)?"api-request":"github-issue") : n.config?.tool === "upper" ? "uppercase" : n.config?.tool === "lower" ? "lowercase" : n.config?.tool || "trim",
+      apiInstallation:n.config?.installation_id||"",
+      apiOperation:n.config?.operation||"",
+      apiArgs:JSON.stringify(n.config?.args||{},null,2),
       compilerTarget:n.config?.target||"pdf",
       compilerDpi:n.config?.dpi??160,
       connectorInstallation:n.config?.installation_id||"",
@@ -198,6 +207,10 @@
           errors.push("Manual input is empty for " + n.name + ".");
       }
       if (type === "connector") {
+        if(n.toolKind==="api-request") {
+          if(capabilities?.connectors?.http_rest!==true)errors.push("API Request execution is not enabled on this service.");
+          try{(root.MimoREST||(typeof require==="function"?require("./api-request.js"):null)).config(n)}catch(error){errors.push(error.message)}
+        } else {
         if(!/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/.test(String(n.connectorInstallation||"")))
           errors.push("Connector ‘"+n.name+"’ needs a valid installed adapter ID.");
         if(!["create_issue","read_issue"].includes(n.connectorOperation))
@@ -206,6 +219,7 @@
           errors.push("Connector ‘"+n.name+"’ requires an issue title.");
         if(n.connectorOperation==="read_issue" && !String(n.connectorNumber||"").trim())
           errors.push("Connector ‘"+n.name+"’ requires an issue number.");
+        }
       }
       if (type === "ai" && !asArray(models).some(m=>m.id === resolveModel(n, models) && m.enabled)) {
         errors.push("Configure an enabled backend model for ‘" + n.name + "’ before cloud execution.");
