@@ -41,7 +41,7 @@ test("budgets dashboard loads scoped policies and outstanding holds", async () =
   assert.match(element("reservationSummary").textContent,/1 pending\/uncertain/);
   assert.match(element("budgetReservations").innerHTML,/uncertain/);
   assert.match(element("budgetReservations").innerHTML,/client/);
-  assert.match(element("policyList").innerHTML,/Project: client/);
+  assert.match(element("policyList").innerHTML,/project: client · lifetime · hard/);
   element("budgetScope").value="project";
   element("budgetProject").value="client";
   element("budgetHard").value="0";

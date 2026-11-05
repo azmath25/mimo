@@ -43,7 +43,7 @@
      ];
      let html=row(
        "Recorded cost: "+money(report.known_total_usd),
-       period+" UTC · "+report.outstanding_holds+" unresolved holds ("+
+       period+" · UTC ledger-ingestion period (not provider invoice date) · "+report.outstanding_holds+" unresolved holds ("+
        money(report.outstanding_estimated_holds_usd)+" reserved). Provider invoices can differ."
      );
      for(const [name,items] of groups){

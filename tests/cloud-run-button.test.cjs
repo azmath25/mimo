@@ -17,6 +17,12 @@ function harness(options = {}) {
       hidden: true, textContent: "",
       classList: { toggle() {} }
     }],
+    ["costPreviewBtn", {addEventListener() {}}],
+    ["confirmCostRun", {disabled:true, listeners:{}, addEventListener(type,fn){this.listeners[type]=fn}}],
+    ["costQuoteStatus", {textContent:""}],
+    ["costQuoteItems", {children:[], replaceChildren(){this.children=[]}, appendChild(node){this.children.push(node)}}],
+    ["runCostLimit", {value:""}],
+    ["runCostMode", {value:"hard"}],
   ]);
   const state = {
     running: false, initialFile: options.file || null,
@@ -26,6 +32,13 @@ function harness(options = {}) {
   const received = [];
   const dialogs = [];
   const uploads = [];
+  const costRequests = [];
+  let costFn = async (path, opts) => {
+    costRequests.push([path,opts]);
+    return {pricing_complete:true,estimated_usd:"0.001000",known_subtotal_usd:"0.001000",
+      blocks:[{node_id:"ai",model_id:"m",max_calls:1,max_output_tokens_per_call:32,
+      price_status:"manual",estimated_usd:"0.001000"}]};
+  };
   let uploadFn = async file => {
     uploads.push(file);
     return {id:"artifact-xyz"};
@@ -48,9 +61,12 @@ function harness(options = {}) {
         request: (...args)=>requestFn(...args),
         uploadArtifact: (...args)=>uploadFn(...args)
       },
-      MimoBridge: {toBackend: () => ({nodes:[],edges:[]})},
+      MimoBridge: {toBackend: () => options.graph || ({nodes:[],edges:[]})},
       MimoCloudResults: {normalize: () => ({})},
     },
+    MimoSite:{api:(...args)=>costFn(...args)},
+    document:{createElement:()=>({append(){}})},
+    closeDialog:()=>{},
     renderCloudReadiness: () => options.issues || [],
     workflowJSON: () => ({initialInput:{text:"Find x when 2x+3=7"}}),
     cloudModels:[],
@@ -67,7 +83,8 @@ function harness(options = {}) {
   vm.createContext(ctx);
   vm.runInContext(inline.slice(start,stop) + "\nthis.testRunCloud = runCloud;",ctx);
   return {
-    state,ctx,received,uploads,dialogs,nodes,
+    state,ctx,received,uploads,dialogs,nodes,costRequests,
+    setCostRequest:fn=>{costFn=fn},
     get status(){return nodes.get("cloudRunMessage").textContent},
     get button(){return nodes.get("runButton")},
     get label(){return nodes.get("runButton .run-text").textContent},
@@ -224,4 +241,30 @@ test("a PDF already stored in Files can be run without uploading it again",async
   assert.equal(payload.mode,"vision_page");
   assert.equal(payload.page_number,2);
   assert.match(h.status,/completed/);
+});
+
+test("AI runs require explicit cost consent before making a billable request",async()=>{
+  const h=harness({graph:{nodes:[{id:"ai",type:"ai",config:{model_id:"m"}}],edges:[]}});
+  await h.run();
+  assert.deepEqual(h.dialogs,["costDialog"]);
+  assert.equal(h.received.length,0,"No workflow execution before user confirms");
+  assert.equal(h.costRequests.length,1,"Only the read-only cost estimate is requested");
+  assert.equal(h.costRequests[0][0],"/v1/cost/estimate");
+  assert.equal(h.nodes.get("confirmCostRun").disabled,false);
+  h.nodes.get("runCostMode").value="hard";
+  h.nodes.get("runCostLimit").value="0.05";
+  h.nodes.get("confirmCostRun").listeners.click();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(h.received.length,1);
+  assert.equal(h.received[0][1].body.cost_limit_usd,0.05);
+  assert.equal(h.received[0][1].body.cost_mode,"hard");
+});
+
+test("an unavailable cost quote prevents submitting an AI workflow",async()=>{
+  const h=harness({graph:{nodes:[{id:"ai",type:"ai",config:{model_id:"m"}}],edges:[]}});
+  h.setCostRequest(async()=>{throw Error("HTTP 503: price service unavailable")});
+  await h.run();
+  assert.equal(h.received.length,0);
+  assert.equal(h.nodes.get("confirmCostRun").disabled,true);
+  assert.match(h.nodes.get("costQuoteStatus").textContent,/unavailable/);
 });
