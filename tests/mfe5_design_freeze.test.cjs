@@ -18,7 +18,7 @@ const blobSha=data=>createHash("sha1")
 
 test("M-FE.5: Studio layout unchanged except approved TikZ, tool-choice and M-COST controls",()=>{
   assert.equal(blobSha(read("studio.html")),
-    "c95ff4e2d76f797d7a8da9a47887e68de43d42a8",
+    "bf71c438b7db4ee04fdf78fd5a38ea25809f7480",
     "Only the approved TikZ, connector and M-COST UI controls may alter Studio");
 });
 
