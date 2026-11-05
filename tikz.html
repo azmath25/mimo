@@ -17,6 +17,23 @@
 @media(max-width:460px){.tikz-output-choices{grid-template-columns:repeat(3,minmax(0,1fr))}.tikz-choice{font-size:11px;padding:10px 5px}}
 @media(prefers-reduced-motion:reduce){.tikz-choice{transition:none}}
 
+
+.tikz-package-card{margin-top:18px}
+.tikz-package-card summary{cursor:pointer;font-weight:750;font-size:15px;line-height:1.5}
+.tikz-package-card summary small{display:block;font-weight:400;color:var(--m-muted);font-size:11px}
+.tikz-package-content{padding-top:15px}
+.tikz-packages-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:9px;margin:14px 0}
+.tikz-package-item{padding:11px;border:1px solid var(--m-border);border-radius:11px;min-width:0;background:#fafcfd}
+.tikz-package-item strong{font-size:12px;display:block;overflow-wrap:anywhere}
+.tikz-package-item small{font-size:10px;color:var(--m-muted);display:block;overflow-wrap:anywhere}
+.tikz-package-state{font-size:10px;font-weight:750;display:inline-block;margin-top:7px;color:#24744b}
+.tikz-package-state.missing{color:#a36d22}
+.tikz-package-state.unknown{color:#71808a}
+.tikz-package-form{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin:12px 0}
+.tikz-package-form .mg-field{flex:1;min-width:min(220px,100%)}
+.tikz-package-form .mg-btn{min-height:40px}
+@media(prefers-reduced-motion:reduce){.tikz-package-card *{scroll-behavior:auto}}
+
 </style></head>
 <body data-page="tikz" style="margin:0"><main class="mg-page"><div class="mg-wrap">
 <section class="mg-hero"><div><span class="mg-eyebrow">Mathematical tools</span>
@@ -54,6 +71,24 @@
 </section>
 <section class="mg-card"><div class="mg-section"><h2 id="tikzPreviewTitle">PDF preview</h2></div>
 <iframe title="Compiled TikZ PDF" id="tikzPreview" class="tikz-preview"></iframe><img alt="Compiled TikZ PNG preview" id="tikzImagePreview" class="tikz-preview" style="object-fit:contain" hidden>
-</section></div></div></main>
+</section></div>
+<details class="mg-card tikz-package-card" id="tikzPackagesPanel">
+  <summary>TeX Live packages &amp; compatibility <small>Read-only check of what the active private compiler actually has installed</small></summary>
+  <div class="tikz-package-content">
+    <p>Mimo uses <strong>pdfLaTeX</strong>. Packages are provisioned when the private compiler image is built, not installed during a workflow. Availability does not guarantee every command is permitted or that XeLaTeX/LuaLaTeX features work.</p>
+    <div id="tikzPackagesNotice" class="mg-feedback" role="status" aria-live="polite">Open this panel to check the running compiler.</div>
+    <div id="tikzPackagesList" class="tikz-packages-grid" aria-label="Installed compiler packages"></div>
+    <form id="tikzPackageForm" class="tikz-package-form">
+      <div class="mg-field">
+        <label for="tikzPackageName">Check a particular package or document class</label>
+        <input id="tikzPackageName" name="name" autocomplete="off" maxlength="80" placeholder="e.g. siunitx.sty or standalone.cls" aria-describedby="tikzPackageHelp">
+      </div>
+      <button type="submit" class="mg-btn" id="checkTikzPackage">Check availability</button>
+      <button type="button" class="mg-btn" id="refreshTikzPackages">Refresh catalog</button>
+    </form>
+    <p id="tikzPackageHelp" class="mg-hint">Enter a simple .sty or .cls name; no paths. Checks do not compile TeX, download packages, or invoke AI providers.</p>
+    <div id="tikzPackageLookupResult" class="mg-feedback" role="status" aria-live="polite"></div>
+  </div>
+</details></div></main>
 <script src="./site.js"></script><script src="./tikz-png-verify.js?v=20261105"></script><script src="./tikz.js?v=20261105-verify"></script><script type="module" src="./cloud-auth.js"></script>
 </body></html>
