@@ -153,7 +153,7 @@
      note("Compilation complete. "+format.toUpperCase()+(format==="png"?" at verified "+dpi+" DPI ("+pngMeta.width+" × "+pngMeta.height+" px)":"")+" is ready to preview or download.");
    }catch(e){
      const message=String(e.message||e);
-     const missing=message.match(/File\\s+[`'"]?([A-Za-z][A-Za-z0-9_-]*\\.(?:sty|cls))\\b/i);
+     const missing=message.match(/File\s+[`'"]?([A-Za-z][A-Za-z0-9_-]*\.(?:sty|cls))\b/i);
      if(missing){
        $("tikzPackageName").value=missing[1];
        packagesPanel.open=true;
