@@ -65,7 +65,7 @@ function harness(options = {}) {
       MimoCloudResults: {normalize: () => ({})},
     },
     MimoSite:{api:(...args)=>costFn(...args)},
-    document:{createElement:()=>({append(){}})},
+    document:{getElementById:id=>nodes.get(id)||null, createElement:()=>({append(){}})},
     closeDialog:()=>{},
     renderCloudReadiness: () => options.issues || [],
     workflowJSON: () => ({initialInput:{text:"Find x when 2x+3=7"}}),
