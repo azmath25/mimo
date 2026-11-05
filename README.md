@@ -1,137 +1,101 @@
-# Mimo Studio — Cloud-connected frontend
+# Mimo Studio — current frontend state
 
-> **Unreleased M-FE.2 staging safety:** On `feature/platform-autonomy-v1`, authenticated API requests now **fail closed** until an isolated staging Studio Cloud Run origin is explicitly approved in `cloud-auth.js` by a source review. The known existing production URL below is background/reference information, **not the active target of this feature branch**. See [M-FE.2 security checkpoint](docs/M_FE2_STAGING_AUTH_HARDENING.md). Do not change the target via query parameters or browser storage, and do not deploy this branch without the separate staging go/no-go process.
+**Status as of 2026-11-05.** This README completely replaces the obsolete staging and first-install instructions. It describes current source, known gaps and release acceptance. It does not claim that the currently running Google Cloud backend has the newest source.
 
-**Architecture:** A six-page static site. `index.html` is the dashboard, `studio.html` preserves the v3.3 canvas and block builder, and separate pages manage workflows, AI models/API connections, API projects/endpoint generation, and budgets/usage. Firebase Auth protects the UI; Cloud Run protects all admin APIs. The UX upgrade also adds a runnable cloud starter workflow, run-readiness checks, keyboard saving, and per-administrator local recovery after accidental tab closure.
+- Repository: **azmath25/mimo**.
+- Audited published frontend baseline: **main at 49d77b4707ca506efeab2e30b337c7668d023c28** (includes M-COST and the M-TEX package UI). This documentation-only change may advance the main commit.
+- Frontend tests: [GitHub Actions 42029330946](https://github.com/azmath25/mimo/actions/runs/42029330946), **passed** for audited baseline.
+- GitHub Pages: [deployment 42029329622](https://github.com/azmath25/mimo/actions/runs/42029329622), **successful** for audited baseline.
+- Published site: **https://azmath25.github.io/mimo/**.
+- Backend repository: [azmath25/mimo-backend](https://github.com/azmath25/mimo-backend); audited application baseline **093502a2ad73e9ddc47b12a535deff29dca826be**.
+- **Critical gap:** the reviewed new REST API Request UI is on [draft PR #28](https://github.com/azmath25/mimo/pull/28), **not in frontend main**. The REST backend has already been merged, but is disabled by default and its production activation has not been independently confirmed.
 
-## Services
+## Present architecture
 
-- Firebase Auth project: `mimo-3fb0f` (administrator UID must appear in the backend's `MIMO_ADMIN_UIDS`).
-- Mimo backend: `https://mimo-backend-git-993130348924.europe-west1.run.app`.
-- Neon PostgreSQL stores cloud workflow drafts. The browser also keeps local backups.
-- Cloud Storage remains private and is accessed only through the backend.
+Mimo is a multi-page static management interface using Firebase admin authentication. Business rules, project authentication, provider credentials, workflow execution and file access belong to the FastAPI/Neon/Cloud Run backend; the browser is not a secret store.
 
-## GitHub Pages deployment (browser-only)
+The shared shell uses **site.js**, **site.css** and **cloud-auth.js**; management pages use their own controllers. **studio.html** contains the visual drag-and-connect canvas and substantial embedded controller logic. Cloud model/tool calls are made only through authenticated backend requests; the local simulation/Preview is not a claim of cloud execution.
 
-1. Merge the frontend pull request into `main`.
-2. On GitHub, go to **Settings → Pages → Build and deployment**.
-3. Select **Deploy from a branch**, **main**, **/(root)** and **Save**.
-4. Open `https://azmath25.github.io/mimo/`.
-5. Under the backend Cloud Run service **Edit & deploy new revision**, add:
-   `MIMO_CORS_ORIGINS=https://azmath25.github.io`
-   (exact origin; no trailing slash or `/mimo` path). Redeploy.
-6. Under Firebase Authentication **Settings → Authorized domains**, ensure
-   `azmath25.github.io` is authorized. Enable Email/Password and/or Google sign-in.
-7. Sign in with your whitelisted Firebase account. The page checks `GET /v1/me`
-   before allowing Studio use.
+### Pages in the published main
 
-**Backend dependency:** The Studio drafts backend PR #3 is merged into `mimo-backend/main`; ensure the matching Cloud Run revision has deployed. It provides:
-`GET /v1/workflows` lists your saved workflows, `POST/PATCH` can save unfinished canvases, and `DELETE /v1/workflows/{id}` deletes unpublished drafts. Publish and execute still perform full graph validation.
+| Page | Current purpose | Notes |
+| --- | --- | --- |
+| [Overview](index.html) | Navigation, health and summary cards | Firebase authentication required for private data |
+| [Workflows](workflows.html) | Drafts, versioning, publication and import/export | Requires matching backend APIs |
+| [Studio](studio.html) | Block editor, canvas, conditions, inputs/outputs, run controls | Large coupled source; can be improved incrementally |
+| [TikZ Lab](tikz.html) | PDF/PNG compile, DPI presets, package catalog and name lookup | Package panel reflects active private compiler; does not install packages |
+| [Runs & reviews](runs.html) | Durable run history, checkpoints, events, approvals, retry, resume/cancel | Live network/runtime still needs acceptance |
+| [Files](files.html) | PDF and image uploads, text/page inspection and workflow reuse | Whole-PDF vision OCR not present |
+| [Diagnostics](diagnostics.html) | Service health, capabilities, metrics and runtime state | A health check alone is not provider or workflow acceptance |
+| [AI models](models.html) | Model endpoint/remote-model registration, secret references, pricing and RPM | Provider-native differences/quotas require live checks |
+| [API access](access.html) | Published workflow URLs, project keys, grants and API examples | Project keys belong in consuming servers |
+| [Connectors](connectors.html) | Existing installations, project grants and human approvals | Generic REST UI is in PR #28, not here yet |
+| [Budgets & usage](budgets.html) | M-COST spending policies, cost reports and reconciliation | Provider charge estimates only; not total cloud invoice |
 
-## Page directory
+## Confirmed source features in main
 
-| Page | Purpose |
+- Connected workflow canvas with an Input/AI/tool/compiler/condition/review/output model, JSON import/export and optional context guide.
+- Backend-aware model selection, real run submit paths, explicit execution options, pre-run AI cost quote, fallback estimates and user spending limits.
+- Firebase sign-in and a shared page shell, including navigation and authentication restoration.
+- PDF input: embedded text from all PDF pages, or a selected page rendered for vision; artifacts remain backend-owned.
+- TikZ Lab with PDF/PNG, 72–600 DPI backend contract, verification of requested image DPI, and a lazy read-only package-check panel.
+- Runs/reviews, artifact downloads, operational diagnostics and provider/RPM/cost management.
+- Static responsive and keyboard/browser regression checks; tests are local or mocked and do not prove real cloud or Firebase operation.
+
+### Important constraints
+
+- The **real REST API Request** block, REST connection management form, metadata-backed selection, scalar argument mapping and typed output wiring exist only in **feature/m-api-orchestration-20261105** / [draft PR #28](https://github.com/azmath25/mimo/pull/28). Feature CI [42040949613](https://github.com/azmath25/mimo/actions/runs/42040949613) passed; this is **not** a production deployment.
+- Studio is a large monolithic HTML/controller file. Do not delete or redesign it blindly; first extract modules behind tests and preserve graph serialization and user drafts.
+- AI-based conditional routing and truly nested subworkflows are not implemented by the current backend, even if the visual editor can show related concepts.
+- Backend Execution-role native provider SSE exists, but Studio's persisted-draft workflow interface is not a complete native token-by-token chat experience.
+- PDF scanning/diagram reconstruction and semantic figure accuracy require additional AI and review orchestration. Successful TeX compilation is not proof that a diagram matches the source.
+- The expanded TeX Live image is a source definition until the private compiler image is rebuilt and verified; the package checker must not be interpreted as supporting arbitrary TeX, XeLaTeX or untrusted source.
+- External REST fees, Google Cloud billing and Neon charges are not included in AI-provider M-COST totals.
+
+## Current release state: source is not runtime
+
+| Item | Audited evidence |
 | --- | --- |
-| `index.html` | Overview and service health |
-| `studio.html` | Focused drag-and-drop workflow editor and block builder |
-| `workflows.html` | Cloud drafts, versions and publishing |
-| `models.html` | AI model connection and provider pricing management |
-| `access.html` | API projects, one-time keys, grants and endpoint templates |
-| `budgets.html` | Usage and cost policies |
+| Published frontend main contains M-COST controls | **Confirmed** |
+| Published frontend main contains TikZ package interface | **Confirmed** |
+| GitHub Pages deployment for audited main | **Passed** |
+| Full REST UI in published frontend main | **No** — still draft PR #28 |
+| Backend main contains REST execution engine | **Yes** |
+| Production Neon migration 0024 applied | **Not independently confirmed** |
+| REST enabled in Cloud Run | **Not independently confirmed**; source flag defaults off |
+| New backend/worker/compiler runtime versions | **Not independently confirmed** |
+| Authenticated browser end-to-end REST run | **Not independently confirmed** |
 
-## Connect the first real AI provider and Execution API
+The frontend hardcodes a reviewed Studio HTTPS origin in **cloud-auth.js** rather than accepting user-supplied API URLs. This is intentional credential-leak protection. Do not change its authenticated request destination through query parameters, local storage or an arbitrary user input.
 
-The backend already supports real OpenAI-compatible text completions and chained AI blocks. This UI release adds:
+## What remains before Mimo works end-to-end
 
-- **AI Models → Quick provider setup**: OpenRouter free, Groq, or custom provider. The dropdown only fills nonsecret fields; create a provider API key separately in the provider dashboard.
-- **Studio → Build real AI chain**: constructs Input → Extraction AI → Proofreading AI → Output, using the first enabled configured text model in the backend registry. Running it makes actual provider calls and may consume credits.
-- **Studio block inspector → Connected backend model**: choose the internal model ID stored in Neon (not a demo-provider suggestion).
-- **API Access → Verify service**: checks `GET /health/service` returns `role=execution`, then `/health/ready` confirms DB/storage. No credentials are sent in the probe. Endpoint copy requires verification, but a health check is **not** an authenticated end-to-end workflow test.
+**Release-critical sequence:**
 
-**Backend dependency:** [mimo-backend PR #5](https://github.com/azmath25/mimo-backend/pull/5) adds the role health endpoint and includes the browser-only setup guide at [docs/REAL_AI_AND_EXECUTION_CLOUD_RUN.md](https://github.com/azmath25/mimo-backend/blob/feature/real-agents-execution-readiness/docs/REAL_AI_AND_EXECUTION_CLOUD_RUN.md).
+1. In production, verify Studio/Execution/Worker/Compiler Cloud Run revisions, auth/CORS/IAM, shared Neon revision, Cloud Tasks, object storage and rollback positions.
+2. Review and apply backend additive REST migration **0024** to the intended Neon production DB, preserving existing data. Confirm REST remains disabled until activation.
+3. Deploy matching backend roles and private TeX compiler under guarded health and rollback checks. Test normal workflows, budgets, PDF and requested PNG DPI before enabling REST.
+4. Enable approved REST execution consistently in the backend only after the migration. Run a no-cost approved HTTPS read, project grant and exact response mapping, and a separate approved-write safety test without triggering real paid actions.
+5. Publish the reviewed frontend **PR #28** after backend capability checks; verify REST connection listing/create/edit-as-new-ID, project grants, one deliberate free read test and API Request block execution from an external project server.
+6. Verify real Firebase login/navigation, mobile 320/360/390px views, bounded provider calls, background/parallel jobs, errors, retries and rollback in a production acceptance checklist.
 
-Setup requires manual actions in your own accounts:
-1. Put a provider key in Google Secret Manager; reference it as `MIMO_SECRET_OPENROUTER` (or another chosen name) in Studio's Cloud Run service.
-2. Register that model with the matching `secret_ref` in Mimo's AI Models page, then click **Test**.
-3. Create a second Cloud Run service with the **same deployed backend image**, `MIMO_API_ROLE=execution`, migrations off, shared Neon/GCS and provider secrets.
-4. Paste the actual execution-service HTTPS origin into Mimo API Access and **Verify service**.
-5. Publish a workflow version, create a project key, grant it run permission, and call its endpoint from a trusted server.
+**Product polish and longer-term full vision:**
 
-Only your **server-side** Firebase Function or other backend may hold the one-time project API key. Never embed it in GitHub Pages HTML/JavaScript. Keep `background=false` while the Cloud Tasks worker is disabled. One execution Cloud Run service handles all published workflow IDs.
+7. Build a guided REST operation editor instead of raw JSON; remove unnecessary metadata/API calls and show clear secret, cost, approval and test states.
+8. Modularize Studio while preserving the existing user flow. Add genuinely reusable saved block templates and eventual subworkflow/AI-condition support only after matching backend contracts.
+9. Build a first-class all-page mathematics PDF pipeline: scanned-page vision batches, figure reconstruction in TikZ, compiled-artifact comparison, individual review and checkpoint retry.
+10. Add infrastructure and third-party API cost visibility plus alerting, service-level tracing and documented restore procedures.
 
-## New: in-app provider keys and TikZ Lab
+**Smallest definition of API launch-ready:** steps 1–6, with a verified end-to-end workflow called by an external server and explicit rollback proof. **Full autonomous mathematics workflow completeness** additionally requires the product capabilities in steps 7–10.
 
-The AI Models page now contains a secure key-management form for adding and rotating provider API keys through the backend's Google Secret Manager keyring. Keys are not returned to the browser or stored in Neon. The keyring resource and IAM permissions must be provisioned once on Google Cloud.
+## Maintenance and references
 
-The new [TikZ Lab](tikz.html) compiles real standalone LaTeX documents through an isolated private TeX Live service. It supports PDF documents and PNG diagrams, downloadable after compilation. Studio compiler nodes can execute and download compiled artifacts once the service is configured. Until that point, the capability check prevents simulated success.
+- [Backend current state](https://github.com/azmath25/mimo-backend/blob/main/README.md)
+- [REST UI PR #28](https://github.com/azmath25/mimo/pull/28)
+- [Frontend M-COST checkpoint](docs/M_COST8_FRONTEND_CHECKPOINT_20261105.md)
+- [Frontend mobile/browser audit](docs/M_FE4_LOCAL_BROWSER_AUDIT.md)
+- [Frontend design freeze](docs/M_FE5_FRONTEND_SOURCE_CLOSURE.md)
+- [Backend REST release gate](https://github.com/azmath25/mimo-backend/blob/main/docs/M_API_IMPLEMENTATION_20261105.md)
+- [Backend compiler package checkpoint](https://github.com/azmath25/mimo-backend/blob/main/docs/M_TEX1_PACKAGE_CATALOG_CHECKPOINT_20261105.md)
 
-Backend setup: see the private backend repository's docs/PROVIDER_KEYS_AND_TIKZ.md. GitHub Pages and the backend are **not automatically deployed** merely by pushing this branch.
-
-## Features and limits
-
-- **Save:** writes a browser backup first, then a cloud draft to Neon. A failure is shown explicitly, never disguised as success.
-- **Open:** lists cloud drafts and opens them from the backend. JSON import/export stays supported.
-- **Preview:** keeps the original local, non-AI simulator, including unsupported tools.
-- **Workflow checks:** the Check dialog explains unsupported cloud blocks, disconnected nodes and missing AI models before executing.
-- **Quick start:** the sidebar includes a text → uppercase → output workflow runnable without AI provider keys.
-- **Recovery:** an 800ms local autosave (scoped to the signed-in UID) offers restoration of unsaved edits; Cmd/Ctrl+S saves the current workflow. Recovery is local, not a substitute for cloud saving.
-- **Navigation:** `site.js` / `site.css` provide shared navigation and Firebase sign-in on all pages.
-- **Workflow library:** `workflows.html` lists drafts, opens Studio, validates and publishes immutable versions.
-- **Model management:** `models.html` registers/updates/disables/tests providers and uses secret references (never raw provider keys).
-- **API access:** `access.html` issues one-time project API keys, grants versions, and generates execution URLs and curl examples. An independent `MIMO_API_ROLE=execution` Cloud Run service is required before external run URLs work.
-- **Spending:** `budgets.html` displays lifetime usage and configures pre-call hard limits and informational soft thresholds.
-- **Run in cloud:** uses the authenticated `POST /v1/workflows/execute` endpoint and displays real node results. Currently works for the backend's allowed text tools and configured models.
-- **AI model setup:** Cloud Run does not itself supply API keys or models. Models must be added to the backend registry, with secret references; don't store keys in HTML.
-- **Unsupported operations:** the direct PDF workflow input now supports all-page embedded-text extraction and single-page vision, but not automatic visual OCR of the full PDF. TikZ PDF/PNG compilation works in the cloud **only when the private compiler is deployed and COMPILER_URL is configured**. The Run action clearly blocks unsupported workflows rather than simulating success.
-- **Real results:** the inspector distinguishes actual cloud results from Preview simulations and supports cloud output-bundle exports.
-- **Limit:** The direct `execute` endpoint returns a completed result but does not create a persisted run record. Published workflow/job execution uses separate backend APIs.
-- **Admin-only access:** The page hides behind Firebase sign-in, and each backend request contains a fresh ID token. The public Firebase web config is not a secret. Backend authorization, not UI hiding, enforces access.
-- **Not yet supported:** Reusable block libraries are still browser-local; the canvas remains a single large standalone `studio.html` pending further modularization. The current backend has no project-listing endpoint, so API Access remembers only project IDs/names locally and never stores issued API keys. API endpoints are templates until a separate execution service is deployed.
-
-Run checks with `node --check cloud-auth.js` and `node --test tests/*.test.cjs`. Visit each page over GitHub Pages, not `file://`, so ES modules and Firebase work.
-
-
-## Mimo v2 integrated release (staging branch)
-
-The v2 frontend includes real administration pages for:
-- **Studio:** configurable AI/vision/image generation, deterministic tools, numeric routing, input combination, full workflow guides, TikZ PDF/PNG, persistent draft runs.
-- **Runs & Reviews:** durable history, checkpoints/events, retry, resume/cancel, gated approvals and artifact downloads.
-- **Files:** PDF/PNG/JPEG uploads, real embedded PDF text extraction, rendered page previews and page-to-vision artifacts.
-- **AI Models:** provider registry and in-app API-key rotation backed by Google Secret Manager; raw provider keys are never returned.
-- **API Access:** versioned workflow publishing, project API keys, rotation/revocation, per-workflow grants and endpoint examples.
-- **Budgets & Usage:** cost and usage reports with backend checks.
-- **Diagnostics:** backend service role, database/storage readiness and advertised feature capabilities.
-
-For external consumer applications (e.g. another math quiz website), published
-workflow execution is done from the **other project's server**, using a
-project-scoped API key. Do not paste that key in public frontend JavaScript.
-See the backend repository's docs/EXTERNAL_API_V2.md for Python and Node SDKs,
-uploads, project-owned vision inputs, run history and retry/cancel APIs.
-
-### Deployment requirements
-
-These pages are source features, not proof of deployment. Before merging the
-stacked PRs, deploy the **Studio** and **Execution** backend roles against the
-same Neon database with migration 0009, set up the Secret Manager keyring,
-private TeX Live worker, shared artifact storage, and Cloud Tasks worker
-if background runs are enabled. Then exercise a real provider and compiler
-in staging. GitHub CI does not prove these cloud resources are configured.
-
-**Known limitations:** true parallel AI execution, native provider-token
-streaming, automated vision OCR without a configured vision model, and
-untrusted public TeX compilation are **not** implemented. Workflow nodes run
-sequentially in topological order to preserve checkpoints and side-effect
-consistency. Treating preview animations as parallel cloud work would be
-misleading.
-
-
-## PDF input directly in Studio (November 2026)
-
-Studio → Input accepts PDFs up to 10 MiB alongside PNG/JPEG. Choose either
-**Embedded text — all PDF pages** or **Vision — one selected PDF page**.
-Files → **Use full PDF in Studio** can reuse a privately stored PDF without
-uploading it again. Text mode is not OCR; scanned pages and diagrams need
-page-vision review. The backend must advertise pdf.workflow_input=true, and
-Studio, Execution and Worker must run matching backend images. The PDF model
-receives only extracted text or the selected page PNG, not arbitrary URLs or
-base64 PDF data. Whole-PDF visual OCR batching is a separate future feature.
+Other old milestone notes remain as historical records, not authoritative assertions of current production deployment. When the next release occurs, update this README with its exact commit, checked live runtime capability, CI and known limitations. **Never equate a merge or passing unit tests with a deployed, billed, authenticated end-to-end system.**
