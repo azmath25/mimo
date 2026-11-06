@@ -30,13 +30,24 @@ function fixture(initial={input_per_million:2,cached_input_per_million:0,output_
     async api(p,opts){
       if(p==="/v1/models")return [model];
       if(p==="/v1/models/groq_text/pricing")return {...price};
+      if(p==="/v1/models/groq_text/pricing/suggestion")return {
+        available:true,suggestion:{verified_on:"2026-11-06",pricing:{
+          input_per_million:0.075,cached_input_per_million:0.0375,
+          output_per_million:0.3,image_per_unit:0,source:"catalog_groq_20261106"
+        }}
+      };
+      if(p==="/v1/models/groq_text/pricing/apply"&&opts?.method==="POST"){
+        price={...price,input_per_million:0.075,cached_input_per_million:0.0375,output_per_million:0.3,
+               image_per_unit:0,source:"catalog_groq_20261106"};
+        return {applied:true,price:{...price}};
+      }
       if(p==="/v1/models/groq_text"&&opts?.method==="PATCH"){
         ++saveCount;submitted=opts.body;price={...price,...opts.body.pricing};return model;
       }
       throw Error("Unexpected endpoint: "+p);
     }
   };
-  vm.runInNewContext(src,{document:{getElementById:el},MimoSite:site,URL});
+  vm.runInNewContext(src,{document:{getElementById:el},MimoSite:site,URL,confirm:()=>true});
   return {
     el,ready,notice:()=>lastNotice,submitted:()=>submitted,saves:()=>saveCount,price:()=>price,
     async edit(){
@@ -94,4 +105,19 @@ test("incomplete price updates fail closed; no silent zero coercion",async()=>{
   await f.save();
   assert.equal(f.saves(),0);
   assert.match(f.notice(),/both input and output/);
+});
+
+test("one-click catalog price adoption reads back exact prices and does not overwrite on normal Save",async()=>{
+  const f=fixture();
+  await f.edit();
+  assert.match(html,/id="modelApplyCatalogPrice"/);
+  await f.el("modelApplyCatalogPrice").listeners.click();
+  assert.equal(f.el("modelInputPrice").value,"0.075");
+  assert.equal(f.el("modelCachedInputPrice").value,"0.0375");
+  assert.equal(f.el("modelOutputPrice").value,"0.3");
+  assert.match(f.notice(),/Catalog price saved and verified/);
+  await f.save();
+  assert.equal(f.saves(),1);
+  assert.equal(f.submitted().pricing,undefined,
+    "Unchanged catalog pricing must not be silently re-saved as manual");
 });
