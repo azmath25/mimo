@@ -80,7 +80,7 @@ function horizontalViewportOk(v,width,name){
 
 for(const width of [320,360,390,768]){
   test("local Chromium "+width+"px: management pages remain reachable",async()=>{
-    for(const file of ["index.html","runs.html","access.html"]){
+    for(const file of ["index.html","runs.html","access.html","rest-connections.html"]){
       const app=await fixture(file,width);
       try {
         assert.equal(await app.page.locator("main").count(),1);
@@ -255,4 +255,66 @@ test("local Chromium: selecting background and parallel uses the original workfl
     assert.equal(await p.locator("#exportsDialog").isHidden(),true);
     assert.equal(app.blocked.some(x=>x.endsWith(".run.app")),false);
   } finally {await close(app)}
+});
+
+for(const width of [320,360,390,768,1280]){
+ test('local Chromium '+width+'px: API Request binds approved data without external calls',async()=>{
+  const app=await fixture('studio.html',width,900);
+  try{
+   const p=app.page;
+   await p.evaluate(()=>{
+    window.restFixtureCalls=[];
+    MimoSite.requireCloud=()=>true;
+    MimoSite.api=async path=>{restFixtureCalls.push(path);return {installations:[{id:'catalog',adapter:'http_rest',enabled:true,definition:{operations:[{id:'lookup',method:'GET',effect:'read',arguments:{item_id:{type:'string'}}}]}}]}};
+   });
+   if(await p.locator('#toggleLibrary').getAttribute('aria-expanded')==='false')await p.locator('#toggleLibrary').click();
+   await p.getByText('API connections · 2',{exact:true}).click();
+   await p.locator('[data-template="api"]').click();
+   await p.locator('[data-api-load]').click();
+   await p.locator('#nodeApiInstallation').selectOption('catalog');
+   await p.locator('#nodeApiOperation').selectOption('lookup');
+   await p.locator('#nodeApiArg_item_id').fill('{{workflow.input.item_id}}');
+   assert.equal(await p.locator('#nodeApiArgs').inputValue(),'{\n  "item_id": "{{workflow.input.item_id}}"\n}');
+   assert.deepEqual(await p.evaluate(()=>restFixtureCalls),['/v1/connectors/installations']);
+   horizontalViewportOk(await p.evaluate(()=>({scrollWidth:document.documentElement.scrollWidth})),width,'API inspector');
+   assert.equal(app.blocked.some(x=>x.endsWith('.run.app')),false);
+   if(width===390)await p.screenshot({path:path.join(output,'api-request-390.png')});
+  }finally{await close(app)}
+ });
+}
+
+test('local Chromium: REST manager saves immutable definitions and only tests on explicit action',async()=>{
+ const app=await fixture('rest-connections.html',390,900);
+ try{
+  const p=app.page;
+  await p.evaluate(()=>{
+   window.restFixtureCalls=[];let rows=[];
+   MimoSite.requireCloud=()=>true;
+   MimoSite.api=async(path,options={})=>{
+    restFixtureCalls.push({path,method:options.method||'GET',body:options.body});
+    if(path.endsWith('/test'))return {id:'fixture',status:'completed',result:{content:{price:29.5}}};
+    if(options.method==='POST'){rows=[{...options.body,resource:options.body.definition.base_origin}];return rows[0]}
+    return {installations:rows};
+   };
+  });
+  await p.locator('#restId').fill('catalog');await p.locator('#restOrigin').fill('https://api.example.com');
+  await p.locator('#restCostConsent').check();await p.locator('#restSave').click();
+  await p.waitForFunction(()=>document.querySelector('#restStatus').textContent.includes('saved'));
+  let calls=await p.evaluate(()=>restFixtureCalls);
+  assert.equal(calls.filter(x=>x.method==='POST').length,1);
+  assert.equal(calls[0].body.definition.operations[0].acknowledge_unknown_cost,true);
+  assert.equal(calls.some(x=>x.path.endsWith('/test')),false);
+  await p.getByText('Test an approved read',{exact:true}).click();
+  await p.locator('#restTestProject').fill('client');await p.locator('#restTestArgs').fill('{"item_id":"book"}');
+  p.once('dialog',dialog=>dialog.accept());await p.locator('#restTestButton').click();
+  await p.waitForFunction(()=>document.querySelector('#restTestResult').textContent.includes('completed'));
+  calls=await p.evaluate(()=>restFixtureCalls);
+  assert.equal(calls.filter(x=>x.path.endsWith('/test')).length,1);
+  assert.ok(calls.at(-1).body.idempotency_key);
+  await p.locator('[data-rest-toggle="catalog"]').click();
+  await p.waitForFunction(()=>document.querySelector('#restStatus').textContent.includes('disabled'));
+  assert.equal((await p.evaluate(()=>restFixtureCalls)).findLast(x=>x.method==='POST').body.enabled,false);
+  horizontalViewportOk(await p.evaluate(()=>({scrollWidth:document.documentElement.scrollWidth})),390,'REST manager');
+  assert.equal(app.blocked.some(x=>x.endsWith('.run.app')),false);
+ }finally{await close(app)}
 });

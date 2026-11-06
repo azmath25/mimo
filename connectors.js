@@ -11,6 +11,7 @@
  function render(){
    $("connectorInstallation").innerHTML=options(installations,x=>x.id+" · "+x.resource);
    $("connectorProject").innerHTML=options(projects,x=>x.name+" · "+x.id);
+   renderOperations();
    $("installationList").innerHTML=installations.length?installations.map(x=>
      '<article class="mg-row"><div class="mg-row-body"><strong>'+escape(x.id)+
      '</strong><small>'+escape(x.adapter)+' · '+escape(x.resource)+
@@ -33,6 +34,13 @@
      '</div></article>'
    ).join(""):'<div class="mg-empty">No actions awaiting approval.</div>';
  }
+ function renderOperations(){
+   const installation=installations.find(x=>x.id===$("connectorInstallation").value);
+   const operations=installation?.adapter==="http_rest"?installation.definition.operations:
+     [{id:"read_issue",effect:"read"},{id:"create_issue",effect:"write"}];
+   $("connectorOperation").innerHTML=options(operations,x=>x.id+(x.effect==="write"?' — human approval':''));
+ }
+ $("connectorInstallation").addEventListener("change",renderOperations);
  async function refresh(){
    if(!MimoSite.requireCloud())return;
    try{

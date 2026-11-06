@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mimo — REST connections</title><link rel="stylesheet" href="./site.css"></head>
+<body data-page="connectors" style="margin:0">
+<main class="mg-page"><div class="mg-wrap">
+  <section class="mg-hero"><div><span class="mg-eyebrow">Connectors / API orchestration</span><h1>REST connections</h1>
+  <p>Approve a fixed destination and its operations. Workflows use this connection by name; credentials stay on the server.</p></div>
+  <a class="mg-btn" href="./connectors.html">Grants & approvals</a></section>
+  <div id="restStatus" class="mg-feedback" role="status"></div>
+  <div class="mg-grid two">
+    <section class="mg-card"><h2>Create a connection</h2>
+      <form id="restForm"><div class="mg-fields">
+        <div class="mg-field"><label for="restId">Connection ID</label><input id="restId" required pattern="[A-Za-z][A-Za-z0-9_-]{0,63}" maxlength="64" placeholder="catalog_v1"></div>
+        <div class="mg-field"><label for="restOrigin">Approved HTTPS origin</label><input id="restOrigin" required type="url" maxlength="255" placeholder="https://api.example.com"></div>
+        <div class="mg-field"><label for="restAuth">Authentication</label><select id="restAuth"><option value="none">No credential</option><option value="bearer">Bearer token reference</option><option value="api_key_header">API key header reference</option></select></div>
+        <div class="mg-field" id="restSecretField" hidden><label for="restSecret">Server-side secret reference</label><input id="restSecret" maxlength="128" placeholder="catalog_token" autocomplete="off"></div>
+        <div class="mg-field" id="restHeaderField" hidden><label for="restHeader">API key header name</label><input id="restHeader" maxlength="64" value="X-API-Key"></div>
+      </div>
+      <details open style="margin-top:16px"><summary>Approved operations</summary>
+        <p class="mg-hint">Define argument names and types, request field mappings, and selected response fields. Paths use {argument_name}; outputs use JSON pointers such as /item/price. All arguments are required. Writes always require exact approval.</p>
+        <label for="restOperations">Operation definitions (JSON)</label><textarea id="restOperations" rows="16" maxlength="30000" style="width:100%;max-width:100%;box-sizing:border-box;font:13px monospace" spellcheck="false" required></textarea>
+      </details>
+      <p class="mg-hint">Definitions are immutable: create a new connection ID for changes. Provider keys belong in the existing backend keyring, never in this form.</p>
+      <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="restCostConsent" required><span>I understand external API prices are unknown and are not covered by Mimo's AI cost limits.</span></label>
+      <div class="mg-actions"><button class="mg-btn primary" type="submit" id="restSave">Approve & save connection</button></div></form>
+    </section>
+    <section class="mg-card"><h2>Installed REST connections</h2><button class="mg-btn" type="button" id="restRefresh">Refresh</button>
+      <div id="restList" class="mg-list" style="margin-top:16px"></div>
+      <p class="mg-hint">Grant a project access under Connectors & approvals, then select the connection in Studio's API Request block. Reads are never automatically tested.</p>
+      <details><summary>Test an approved read</summary><form id="restTestForm"><div class="mg-fields">
+        <div class="mg-field"><label for="restTestConnection">Connection</label><select id="restTestConnection" required></select></div>
+        <div class="mg-field"><label for="restTestOperation">Read operation</label><select id="restTestOperation" required></select></div>
+        <div class="mg-field"><label for="restTestProject">Granted project ID</label><input id="restTestProject" required maxlength="64"></div>
+        <div class="mg-field"><label for="restTestArgs">Arguments (JSON)</label><textarea id="restTestArgs" rows="4" maxlength="16384">{}</textarea></div>
+      </div><p class="mg-hint">This sends one real server-side request and may incur an external fee. Existing grants, rate limits and the rollout switch apply.</p>
+      <button class="mg-btn" type="submit" id="restTestButton">Send one approved read</button></form>
+      <pre id="restTestResult" class="mg-pre" role="status" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>
+    </section>
+  </div>
+</div></main>
+<script src="./site.js"></script><script src="./rest-connections.js"></script><script type="module" src="./cloud-auth.js"></script>
+</body></html>
