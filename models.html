@@ -48,6 +48,7 @@
    <div class="mg-field"><label for="modelSecret">Secret reference (name only)</label><input id="modelSecret" required pattern="[A-Za-z0-9_-]+" placeholder="qwen_api_key"></div>
    <div class="mg-field"><label>Provider credential reference</label><input id="modelSecretEnv" readonly value="Choose a provider reference" aria-label="Credential reference used by backend"><small id="modelSecretHint" class="mg-hint">Provider keys are entered in the secure key-management form below.</small></div>
    <div class="mg-field"><label for="modelInputPrice">USD per 1M input tokens</label><input id="modelInputPrice" type="text" inputmode="decimal" autocomplete="off" placeholder="Optional"></div>
+   <div class="mg-field"><label for="modelCachedInputPrice">USD per 1M cached input tokens (optional)</label><input id="modelCachedInputPrice" type="text" inputmode="decimal" autocomplete="off" placeholder="e.g. 0.037"></div>
    <div class="mg-field"><label for="modelOutputPrice">USD per 1M output tokens</label><input id="modelOutputPrice" type="text" inputmode="decimal" autocomplete="off" placeholder="Optional"></div>
    <div class="mg-field"><label for="modelImagePrice">USD per generated image</label><input id="modelImagePrice" type="text" inputmode="decimal" autocomplete="off" placeholder="Optional, for image-generation providers"></div>
   <div class="mg-field span"><label style="margin-bottom:9px">Capabilities</label><div class="mg-grid two" style="gap:8px">
