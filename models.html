@@ -51,6 +51,10 @@
    <div class="mg-field"><label for="modelCachedInputPrice">USD per 1M cached input tokens (optional)</label><input id="modelCachedInputPrice" type="text" inputmode="decimal" autocomplete="off" placeholder="e.g. 0.037"></div>
    <div class="mg-field"><label for="modelOutputPrice">USD per 1M output tokens</label><input id="modelOutputPrice" type="text" inputmode="decimal" autocomplete="off" placeholder="Optional"></div>
    <div class="mg-field"><label for="modelImagePrice">USD per generated image</label><input id="modelImagePrice" type="text" inputmode="decimal" autocomplete="off" placeholder="Optional, for image-generation providers"></div>
+  <div class="mg-field span" id="modelPriceCatalogPanel" hidden>
+    <div class="mg-actions"><button class="mg-btn" type="button" id="modelApplyCatalogPrice">Use suggested provider price</button></div>
+    <p class="mg-hint">Mimo uses a dated, verified public rate estimate where supported. A free-tier account may still be billed $0. Unknown prices stay unknown; no fabricated zero charges.</p>
+   </div>
   <div class="mg-field span"><label style="margin-bottom:9px">Capabilities</label><div class="mg-grid two" style="gap:8px">
      <label><input id="capText" type="checkbox" checked style="width:auto"> Text / chat</label>
      <label><input id="capVision" type="checkbox" style="width:auto"> Understand images (vision)</label>
