@@ -2,9 +2,36 @@
 (function(){
  "use strict";
  const $=id=>document.getElementById(id),esc=()=>MimoSite.safe;
- let models=[],editing=null,busy=false;
+ let models=[],editing=null,busy=false,priceBaseline=null;
  function message(text,isError=false){MimoSite.notice("modelFeedback",text,isError)}
- function setBusy(v){busy=v;$("saveModel").disabled=v;$("reloadModels").disabled=v}
+ function setBusy(v){busy=v;$("saveModel").disabled=v;$("reloadModels").disabled=v;$("modelApplyCatalogPrice").disabled=v}
+ const priceFields=["modelInputPrice","modelCachedInputPrice","modelOutputPrice","modelImagePrice"];
+ // Number controls in Safari and non-English locales can discard fractional input.
+ // Accept either decimal comma or decimal dot; reject malformed values rather
+ // than silently coercing them to zero.
+ function parsePrice(id,label){
+   const raw=$(id).value.trim().replace(",",".");
+   if(raw==="")return null;
+   if(!/^\d+(?:\.\d+)?$/.test(raw)||!Number.isFinite(Number(raw))||Number(raw)>1000000){
+     throw Error(label+" must be a non-negative decimal (for example 0.075 or 0,075).");
+   }
+   return Number(raw);
+ }
+ function displayPrice(id,value){
+   $(id).value=value!==null&&value!==undefined&&Number.isFinite(Number(value))?String(value):"";
+ }
+ function setPriceFields(price){
+   displayPrice("modelInputPrice",price.input_per_million);
+   displayPrice("modelCachedInputPrice",price.cached_input_per_million);
+   displayPrice("modelOutputPrice",price.output_per_million);
+   displayPrice("modelImagePrice",price.image_per_unit);
+   priceBaseline={
+     input_per_million:Number(price.input_per_million),
+     cached_input_per_million:Number(price.cached_input_per_million),
+     output_per_million:Number(price.output_per_million),
+     image_per_unit:Number(price.image_per_unit)
+   };
+ }
  function showConnectionTest({title,status="Testing",text="",meta="",error=false}){
    const panel=$("modelTestPanel");
    panel.hidden=false;
@@ -120,7 +147,7 @@
       "After registering, use Manage key to securely store the provider key.";
  }
  function clear(){
-   editing=null;$("modelForm").reset();$("modelPreset").disabled=false;$("modelPreset").value="";$("modelId").disabled=false;
+   editing=null;priceBaseline=null;$("modelPriceCatalogPanel").hidden=true;$("modelForm").reset();$("modelPreset").disabled=false;$("modelPreset").value="";$("modelId").disabled=false;
    $("modelProvider").disabled=false;$("modelEnabled").checked=true;
    $("saveModel").textContent="Register model";$("modelFormTitle").textContent="Register a model";
    $("cancelEdit").hidden=true;fillSuggestionList("","custom");
@@ -128,6 +155,7 @@
    secretEnv();message("");
  }
  function edit(m){
+   priceBaseline=null;$("modelPriceCatalogPanel").hidden=false;
    editing=m.id;$("modelPreset").value="";$("modelPreset").disabled=true;$("modelId").value=m.id;$("modelId").disabled=true;
    $("modelProvider").value=m.provider;$("modelProvider").disabled=true;
    fillSuggestionList("","custom");
@@ -137,10 +165,25 @@
    $("capText").checked=!!(m.capabilities?.text||m.capabilities?.chat);
    $("capVision").checked=!!m.capabilities?.image_understanding;
    $("capGenerate").checked=!!m.capabilities?.image_generation;
-   $("modelInputPrice").value="";$("modelOutputPrice").value="";$("modelImagePrice").value="";
+   priceFields.forEach(id=>{$(id).value="";$(id).disabled=true});
    $("saveModel").textContent="Save model changes";$("modelFormTitle").textContent="Edit "+m.display_name;
    $("cancelEdit").hidden=false;secretEnv();message("");
    $("modelForm").scrollIntoView({behavior:"smooth",block:"center"});
+   // The model list does not include prices; fetch the latest price revision
+   // instead of showing empty fields and allowing accidental zero submissions.
+   $("saveModel").disabled=true;
+   MimoSite.api("/v1/models/"+encodeURIComponent(m.id)+"/pricing")
+     .then(price=>{
+       if(editing!==m.id)return;
+       setPriceFields(price);
+       message("Current pricing loaded. Enter USD per million tokens; decimals may use a dot or comma.");
+     })
+     .catch(error=>{
+       if(editing===m.id)message("Could not load current pricing; enter both input and output prices to update them. "+error.message,true);
+     })
+     .finally(()=>{
+       if(editing===m.id){priceFields.forEach(id=>$(id).disabled=false);$("saveModel").disabled=busy}
+     });
  }
  function clone(m){
    clear();
@@ -315,21 +358,95 @@
        payload.default_response={kind:"image",delivery:"complete"};
      }
    }
-   const input=$("modelInputPrice").value,output=$("modelOutputPrice").value;
-   if(input!==""||output!==""||$("modelImagePrice").value!==""){
-     if(input===""||output===""){message("To set pricing, enter both input and output rates.",true);return}
-     payload.pricing={input_per_million:Number(input),output_per_million:Number(output),image_per_unit:Number($("modelImagePrice").value||0),currency:"USD",source:"manual"};
-   }
+   try{
+     const input=parsePrice("modelInputPrice","Input price");
+     const cached=parsePrice("modelCachedInputPrice","Cached input price");
+     const output=parsePrice("modelOutputPrice","Output price");
+     const image=parsePrice("modelImagePrice","Image price");
+     if([input,cached,output,image].some(v=>v!==null)){
+       if(input===null||output===null){
+         message("Enter both input and output rates to update pricing.",true);return;
+       }
+       const next={
+         input_per_million:input,
+         cached_input_per_million:cached??input,
+         output_per_million:output,
+         image_per_unit:image??0
+       };
+       if(!editing||!priceBaseline||
+          Object.keys(next).some(k=>Math.abs(next[k]-priceBaseline[k])>0.0000000001)){
+         payload.pricing={...next,currency:"USD",source:"manual"};
+       }
+     }
+   }catch(error){message(error.message,true);return;}
    setBusy(true);
    try{
      await MimoSite.api(editing?"/v1/models/"+encodeURIComponent(editing):"/v1/models",
        {method:editing?"PATCH":"POST",body:payload});
-     const msg=editing?"Model settings updated.":"Model registered. If its secret reference is already attached, you can test it immediately.";
-     clear();await refresh();message(msg);
+     const savedId=editing||payload.id;
+     // Do not clear a successful edit; disappearing decimals caused confusion.
+     // Read back the persisted prices and show what Mimo actually saved.
+     let status=editing?"Model settings saved.":"Model registered.";
+     if(payload.pricing){
+       try{
+         const p=await MimoSite.api("/v1/models/"+encodeURIComponent(savedId)+"/pricing");
+         const matches=[
+           ["input_per_million","input_per_million"],
+           ["cached_input_per_million","cached_input_per_million"],
+           ["output_per_million","output_per_million"],
+           ["image_per_unit","image_per_unit"]
+         ].every(([key,field])=>Math.abs(Number(p[key])-Number(payload.pricing[field]))<0.00000001);
+         if(!matches)throw Error("read-back did not match the submitted rates");
+         status+=" Verified input $"+p.input_per_million+" and output $"+p.output_per_million+" per 1M tokens.";
+         setPriceFields(p);
+       }catch(error){
+         status+=" Pricing could not be verified ("+error.message+"). Recheck before running a workflow.";
+       }
+     }
+     if(!editing&&!payload.pricing){
+       try{
+         const auto=await MimoSite.api("/v1/models/"+encodeURIComponent(savedId)+"/pricing");
+         status+=" Catalog pricing: $"+auto.input_per_million+" input / $"+auto.output_per_million+
+           " output per 1M tokens (estimated; actual bill may be $0 on a free tier).";
+       }catch{status+=" No model price configured; protected runs will require one."}
+     }
+     if(!editing)clear();
+     await refresh();
+     message(status);
    }catch(error){message(error.message,true)}finally{setBusy(false)}
  });
 
- $("providerKeyForm").addEventListener("submit", async event=>{
+ $("modelApplyCatalogPrice").addEventListener("click",async()=>{
+   const id=editing;
+   if(!id||busy)return;
+   const button=$("modelApplyCatalogPrice");
+   button.disabled=true;
+   try{
+     const preview=await MimoSite.api("/v1/models/"+encodeURIComponent(id)+"/pricing/suggestion");
+     if(editing!==id)return;
+     if(!preview.available||!preview.suggestion?.pricing){
+       message("No current verified catalog price for this provider/model; leave unknown or enter your verified rate.",true);
+       return;
+     }
+     const item=preview.suggestion;
+     const cost=item.pricing;
+     const accept=confirm("Apply provider catalog snapshot to "+id+"?"+
+       "\nInput $"+cost.input_per_million+" / 1M, output $"+cost.output_per_million+
+       " / 1M.\nVerified: "+item.verified_on+
+       ". These estimates do not change your provider account tier or invoice.");
+     if(!accept)return;
+     const result=await MimoSite.api("/v1/models/"+encodeURIComponent(id)+"/pricing/apply",{method:"POST"});
+     if(editing!==id)return;
+     if(!result.applied||!result.price)throw Error("Catalog price was not confirmed by Mimo.");
+     setPriceFields(result.price);
+     message("Catalog price saved and verified: input $"+result.price.input_per_million+
+       ", cached $"+result.price.cached_input_per_million+", output $"+result.price.output_per_million+
+       " per 1M tokens. Actual provider charges may be $0 under a free-tier account.");
+   }catch(error){
+     if(editing===id)message("Could not apply catalog pricing: "+error.message,true);
+   }finally{button.disabled=busy;}
+ });
+  $("providerKeyForm").addEventListener("submit", async event=>{
    event.preventDefault();
    if(busy)return;
    const ref=$("providerKeyRef").value.trim();
