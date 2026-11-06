@@ -1,55 +1,45 @@
-name: One-time cleanup of superseded Mimo branches
+name: One-time SHA-pinned cleanup of obsolete Mimo frontend branches
 on:
   push:
     branches: [main]
-    paths: [.github/workflows/one-time-branch-cleanup.yml]
+    paths: ['.github/workflows/one-time-branch-cleanup.yml']
 permissions:
   contents: write
+  pull-requests: read
 jobs:
-  delete-obsolete-branches:
+  cleanup:
     if: github.repository == 'azmath25/mimo'
     runs-on: ubuntu-latest
     steps:
-      - name: Delete only explicitly verified stale branch heads
+      - name: Delete only unchanged ancestor branch refs
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        shell: bash
         run: |
           set -euo pipefail
+          open_heads=$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&per_page=100" --paginate --jq '.[].head.ref')
           failures=0
-          while read -r branch expected_sha; do
+          deleted=0
+          while read -r branch expected; do
             [[ -z "$branch" ]] && continue
-            [[ "$branch" == "main" ]] && { echo "::error::Refusing to delete main"; exit 1; }
-            ref_url="repos/$GITHUB_REPOSITORY/git/ref/heads/$branch"
-            if ! actual_sha=$(gh api "$ref_url" --jq '.object.sha'); then
-              echo "::error::Could not check $branch; leaving it unchanged"
-              failures=$((failures+1))
-              continue
-            fi
-            if [[ "$actual_sha" != "$expected_sha" ]]; then
-              echo "::warning::Skipping $branch: branch has changed since inspection"
-              failures=$((failures+1))
-              continue
-            fi
-            if gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch" >/dev/null; then
-              echo "Deleted $branch"
-            else
-              echo "::error::Could not delete $branch"
-              failures=$((failures+1))
-            fi
-          done <<'CLEANUP_BRANCHES'
-          feature/cloud-image-upload-groq-vision 0fa17f232c8808ade410d9765a08eb65e6fbb9e8
-          feature/frontend-model-builder-reasoning-budget c7d4037cb379f9d9a9a73b597b522674d462b61c
-          feature/mimo-v2-integrated 336e69000d634224c3efc8028cac0727cc6eb622
-          feature/phase2-workflow-contract f137e8be44990c5e9e280b355b7afdd2b69e74de
-          feature/real-ai-and-api-verification 80ea334ec8acfa665ec70530e35ae33b35a77a40
-          feature/ui-secrets-and-tikz 9b37378987b24da35425aa8aebdd090ce4e0e16b
-          fix/cloud-run-button-after-image-merge 018ba2238f88bf7fc6cf4b46b86bf00945260634
-          fix/cloud-run-button-recovery b1db8e95eef682a9850dc92d6f707186224e4293
-          fix/groq-test-visible-response 0b9189da830f7da83b392d04564f95c0959d1938
-          release/mimo-v2 336e69000d634224c3efc8028cac0727cc6eb622
-          CLEANUP_BRANCHES
-          if [[ "$failures" -ne 0 ]]; then
-            echo "::error::$failures branches were not deleted"
-            exit 1
-          fi
+            case "$branch" in main|main-backup|work/*) echo "PROTECTED $branch"; exit 1;; esac
+            if grep -Fxq "$branch" <<< "$open_heads"; then echo "SKIP OPEN PR $branch"; continue; fi
+            current=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$branch" --jq '.object.sha' 2>/dev/null || true)
+            if [[ -z "$current" ]]; then echo "SKIP ALREADY ABSENT $branch"; continue; fi
+            if [[ "$current" != "$expected" ]]; then echo "SKIP MOVED $branch"; failures=$((failures+1)); continue; fi
+            ahead=$(gh api "repos/$GITHUB_REPOSITORY/compare/main...$branch" --jq '.ahead_by' 2>/dev/null || true)
+            if [[ "$ahead" != "0" ]]; then echo "SKIP UNMERGED $branch (ahead=$ahead)"; failures=$((failures+1)); continue; fi
+            if gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch" >/dev/null; then echo "DELETED $branch"; deleted=$((deleted+1))
+            else echo "FAILED $branch"; failures=$((failures+1)); fi
+          done <<'PINNED_BRANCHES'
+          backup/pre-m-tex-20261105 c417aa7f783539670cf4d7f737d2346aabd2d291
+          backup/pre-mimo-release-20261105 98b276d16fe5668e29fe147109dc8e0e3cf0374a
+          docs/current-state-20261105 e2841db9d5ab3a9c3cc66b423e382b3f5c1c2fe6
+          feature/fe-run-mode-controls-20261104 b2b1305b13657241643f510bf9aade0366219e92
+          feature/m-cost-frontend-20261105 c417aa7f783539670cf4d7f737d2346aabd2d291
+          feature/m-tex-package-catalog-20261105 49d77b4707ca506efeab2e30b337c7668d023c28
+          feature/platform-autonomy-v1 506b2c1d9b1108cf4ca6743de291335fa4afc66e
+          release/mimo-direct-production-20261104 f59533b75cb85e79344fb8ed99c5cc9767892d50
+          PINNED_BRANCHES
+          echo "Deleted $deleted of 8 branches; failures=$failures"
+          test "$failures" -eq 0
